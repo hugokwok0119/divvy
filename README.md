@@ -1,6 +1,7 @@
 # Divvy
 
-<!-- badges -->
+[![ci](https://github.com/hugokwok0119/divvy/actions/workflows/ci.yml/badge.svg)](https://github.com/hugokwok0119/divvy/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/hugokwok0119/divvy)](https://github.com/hugokwok0119/divvy/releases)
 
 Divvy is a household expense-splitting app. Members import credit-card statements or CSV
 exports, review each expense together, and settle up at the end of a monthly cycle. An AI model
