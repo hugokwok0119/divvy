@@ -1,0 +1,34 @@
+name: Phase / Feature
+description: A self-contained feature or phase of Divvy.
+title: "feat: <short imperative summary>"
+labels: ["phase"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep scope to one deliverable that produces working, testable software on its own.
+        Design context lives in [docs/DESIGN.md](../../docs/DESIGN.md).
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One or two sentences on what this delivers and why.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: The concrete deliverables. Check them off as the work lands.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Definition of done
+      description: The observable result that means this is complete.
+    validations:
+      required: true
