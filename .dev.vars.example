@@ -1,0 +1,5 @@
+BETTER_AUTH_SECRET=replace-me
+GEMINI_API_KEY=replace-me
+GOOGLE_CLIENT_ID=replace-me
+GOOGLE_CLIENT_SECRET=replace-me
+OWNER_EMAIL=demo@example.com

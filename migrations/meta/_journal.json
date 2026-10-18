@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1786666780171,
+      "tag": "0000_lumpy_sue_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791868496528,
+      "tag": "0002_queue_file_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791896126265,
+      "tag": "0003_collaborative_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791901097584,
+      "tag": "0004_cycle_closure",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791962014990,
+      "tag": "0005_pending_approval_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792045727896,
+      "tag": "0006_card_statement_days",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1792049575465,
+      "tag": "0007_reminder_completions",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792111894937,
+      "tag": "0008_history_lineage_index",
+      "breakpoints": true
+    }
+  ]
+}

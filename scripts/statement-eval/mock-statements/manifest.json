@@ -1,0 +1,1607 @@
+{
+  "cases": [
+    {
+      "id": "sample-a1",
+      "split": "development",
+      "layout": "A",
+      "path": "sample-a1.pdf",
+      "transactions": [
+        {
+          "date": "2026-08-25",
+          "amount": 62.83
+        },
+        {
+          "date": "2026-08-25",
+          "amount": 106.3
+        },
+        {
+          "date": "2026-08-29",
+          "amount": 1899.0
+        },
+        {
+          "date": "2026-09-07",
+          "amount": 65.0
+        },
+        {
+          "date": "2026-09-07",
+          "amount": 6.74
+        },
+        {
+          "date": "2026-09-08",
+          "amount": 22.38
+        },
+        {
+          "date": "2026-09-09",
+          "amount": 8.27
+        },
+        {
+          "date": "2026-09-10",
+          "amount": 92.31
+        },
+        {
+          "date": "2026-09-11",
+          "amount": 111.7
+        },
+        {
+          "date": "2026-09-12",
+          "amount": -350.0
+        },
+        {
+          "date": "2026-09-14",
+          "amount": 16.99
+        },
+        {
+          "date": "2026-09-16",
+          "amount": 72.4
+        },
+        {
+          "date": "2026-09-20",
+          "amount": 32.78
+        },
+        {
+          "date": "2026-09-23",
+          "amount": 59.08
+        },
+        {
+          "date": "2026-08-23",
+          "amount": 9.4
+        },
+        {
+          "date": "2026-08-24",
+          "amount": 31.27
+        },
+        {
+          "date": "2026-08-30",
+          "amount": 35.09
+        },
+        {
+          "date": "2026-09-01",
+          "amount": 79.05
+        },
+        {
+          "date": "2026-09-06",
+          "amount": 54.31
+        },
+        {
+          "date": "2026-09-07",
+          "amount": 35.35
+        },
+        {
+          "date": "2026-09-08",
+          "amount": -6.75
+        },
+        {
+          "date": "2026-09-10",
+          "amount": 191.35
+        },
+        {
+          "date": "2026-09-10",
+          "amount": 18.37
+        },
+        {
+          "date": "2026-09-11",
+          "amount": 30.41
+        },
+        {
+          "date": "2026-09-14",
+          "amount": 65.95
+        },
+        {
+          "date": "2026-09-15",
+          "amount": 96.42
+        },
+        {
+          "date": "2026-09-16",
+          "amount": 60.69
+        },
+        {
+          "date": "2026-09-20",
+          "amount": 29.24
+        },
+        {
+          "date": "2026-09-23",
+          "amount": 60.13
+        },
+        {
+          "date": "2026-09-24",
+          "amount": 12.99
+        }
+      ],
+      "expectedTotalCents": 300905,
+      "referenceComponents": [
+        {
+          "label": "Plus Purchases",
+          "amount": 2996.06,
+          "page": 1
+        },
+        {
+          "label": "Plus Fees",
+          "amount": 12.99,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [
+        [
+          {
+            "label": "Total of New Transactions for",
+            "amount": 2205.78,
+            "page": 2
+          },
+          {
+            "label": "Total of New Transactions for",
+            "amount": 790.28,
+            "page": 3
+          },
+          {
+            "label": "Total of Other Account Transactions",
+            "amount": 12.99,
+            "page": 3
+          }
+        ]
+      ],
+      "closingBalanceCents": -49095,
+      "demo": "Reconciles purchases plus fees, not the negative closing balance after an overpayment"
+    },
+    {
+      "id": "sample-b1",
+      "split": "development",
+      "layout": "B",
+      "path": "sample-b1.pdf",
+      "transactions": [
+        {
+          "date": "2026-07-09",
+          "amount": 28.76
+        },
+        {
+          "date": "2026-07-09",
+          "amount": 11.36
+        },
+        {
+          "date": "2026-07-10",
+          "amount": 65.0
+        },
+        {
+          "date": "2026-07-12",
+          "amount": 125.01
+        },
+        {
+          "date": "2026-07-17",
+          "amount": 8.75
+        },
+        {
+          "date": "2026-07-18",
+          "amount": 90.32
+        },
+        {
+          "date": "2026-07-18",
+          "amount": 8.75
+        },
+        {
+          "date": "2026-07-25",
+          "amount": 15.11
+        },
+        {
+          "date": "2026-07-31",
+          "amount": 133.06
+        },
+        {
+          "date": "2026-07-07",
+          "amount": 63.06
+        },
+        {
+          "date": "2026-07-11",
+          "amount": 9.75
+        },
+        {
+          "date": "2026-07-20",
+          "amount": 17.07
+        },
+        {
+          "date": "2026-07-21",
+          "amount": 21.24
+        },
+        {
+          "date": "2026-07-21",
+          "amount": 80.88
+        },
+        {
+          "date": "2026-08-03",
+          "amount": 64.85
+        },
+        {
+          "date": "2026-08-03",
+          "amount": 12.79
+        }
+      ],
+      "expectedTotalCents": 75576,
+      "referenceComponents": [
+        {
+          "label": "Purchases & Other Charges",
+          "amount": 755.76,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [],
+      "closingBalanceCents": 75576
+    },
+    {
+      "id": "sample-a2",
+      "split": "test",
+      "layout": "A",
+      "path": "sample-a2.pdf",
+      "transactions": [
+        {
+          "date": "2026-06-25",
+          "amount": 47.96
+        },
+        {
+          "date": "2026-06-25",
+          "amount": 24.5
+        },
+        {
+          "date": "2026-06-27",
+          "amount": 15.12
+        },
+        {
+          "date": "2026-06-28",
+          "amount": 47.0
+        },
+        {
+          "date": "2026-06-29",
+          "amount": 35.11
+        },
+        {
+          "date": "2026-06-29",
+          "amount": 59.21
+        },
+        {
+          "date": "2026-06-29",
+          "amount": 15.01
+        },
+        {
+          "date": "2026-06-30",
+          "amount": 40.26
+        },
+        {
+          "date": "2026-07-01",
+          "amount": 11.92
+        },
+        {
+          "date": "2026-07-02",
+          "amount": 80.54
+        },
+        {
+          "date": "2026-07-03",
+          "amount": 5.62
+        },
+        {
+          "date": "2026-07-04",
+          "amount": 50.03
+        },
+        {
+          "date": "2026-07-05",
+          "amount": 20.57
+        },
+        {
+          "date": "2026-07-06",
+          "amount": 18.32
+        },
+        {
+          "date": "2026-07-07",
+          "amount": -23.5
+        },
+        {
+          "date": "2026-07-08",
+          "amount": 32.11
+        },
+        {
+          "date": "2026-07-09",
+          "amount": 23.53
+        },
+        {
+          "date": "2026-07-10",
+          "amount": 13.54
+        },
+        {
+          "date": "2026-07-10",
+          "amount": 64.99
+        },
+        {
+          "date": "2026-07-10",
+          "amount": 64.06
+        },
+        {
+          "date": "2026-07-11",
+          "amount": 26.45
+        },
+        {
+          "date": "2026-07-13",
+          "amount": 11.29
+        },
+        {
+          "date": "2026-07-15",
+          "amount": 18.03
+        },
+        {
+          "date": "2026-07-15",
+          "amount": 16.99
+        },
+        {
+          "date": "2026-07-17",
+          "amount": 115.41
+        },
+        {
+          "date": "2026-07-17",
+          "amount": 3.8
+        },
+        {
+          "date": "2026-07-18",
+          "amount": 39.78
+        },
+        {
+          "date": "2026-07-18",
+          "amount": 87.52
+        },
+        {
+          "date": "2026-07-19",
+          "amount": 45.35
+        },
+        {
+          "date": "2026-07-21",
+          "amount": 36.08
+        },
+        {
+          "date": "2026-07-21",
+          "amount": 30.37
+        },
+        {
+          "date": "2026-07-23",
+          "amount": 15.58
+        },
+        {
+          "date": "2026-07-23",
+          "amount": 7.72
+        },
+        {
+          "date": "2026-07-24",
+          "amount": 66.51
+        },
+        {
+          "date": "2026-06-28",
+          "amount": 10.99
+        },
+        {
+          "date": "2026-07-09",
+          "amount": 23.72
+        },
+        {
+          "date": "2026-07-11",
+          "amount": -4.25
+        },
+        {
+          "date": "2026-07-12",
+          "amount": 32.72
+        },
+        {
+          "date": "2026-07-22",
+          "amount": 169.91
+        },
+        {
+          "date": "2026-07-23",
+          "amount": 13.1
+        },
+        {
+          "date": "2026-07-24",
+          "amount": 12.99
+        }
+      ],
+      "expectedTotalCents": 142596,
+      "referenceComponents": [
+        {
+          "label": "Plus Purchases",
+          "amount": 1412.97,
+          "page": 1
+        },
+        {
+          "label": "Plus Fees",
+          "amount": 12.99,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [
+        [
+          {
+            "label": "Total of New Transactions for",
+            "amount": 1166.78,
+            "page": 3
+          },
+          {
+            "label": "Total of New Transactions for",
+            "amount": 246.19,
+            "page": 3
+          },
+          {
+            "label": "Total of Other Account Transactions",
+            "amount": 12.99,
+            "page": 3
+          }
+        ]
+      ],
+      "closingBalanceCents": 142596
+    },
+    {
+      "id": "sample-a3",
+      "split": "test",
+      "layout": "A",
+      "path": "sample-a3.pdf",
+      "transactions": [
+        {
+          "date": "2026-07-25",
+          "amount": 17.05
+        },
+        {
+          "date": "2026-07-26",
+          "amount": 51.42
+        },
+        {
+          "date": "2026-07-27",
+          "amount": 2.21
+        },
+        {
+          "date": "2026-07-28",
+          "amount": 12.25
+        },
+        {
+          "date": "2026-08-01",
+          "amount": 64.73
+        },
+        {
+          "date": "2026-08-03",
+          "amount": 3.15
+        },
+        {
+          "date": "2026-08-03",
+          "amount": 3.15
+        },
+        {
+          "date": "2026-08-05",
+          "amount": 45.16
+        },
+        {
+          "date": "2026-08-07",
+          "amount": 31.54
+        },
+        {
+          "date": "2026-08-08",
+          "amount": 111.27
+        },
+        {
+          "date": "2026-08-10",
+          "amount": 27.19
+        },
+        {
+          "date": "2026-08-14",
+          "amount": 16.99
+        },
+        {
+          "date": "2026-08-18",
+          "amount": 32.67
+        },
+        {
+          "date": "2026-08-20",
+          "amount": 10.37
+        },
+        {
+          "date": "2026-08-21",
+          "amount": 49.13
+        },
+        {
+          "date": "2026-08-22",
+          "amount": 31.48
+        },
+        {
+          "date": "2026-08-23",
+          "amount": 147.13
+        },
+        {
+          "date": "2026-08-24",
+          "amount": 115.62
+        },
+        {
+          "date": "2026-07-23",
+          "amount": 6.85
+        },
+        {
+          "date": "2026-07-24",
+          "amount": 23.18
+        },
+        {
+          "date": "2026-07-26",
+          "amount": 36.84
+        },
+        {
+          "date": "2026-07-27",
+          "amount": 36.41
+        },
+        {
+          "date": "2026-07-31",
+          "amount": 42.64
+        },
+        {
+          "date": "2026-08-02",
+          "amount": 5.19
+        },
+        {
+          "date": "2026-08-03",
+          "amount": 32.98
+        },
+        {
+          "date": "2026-08-03",
+          "amount": 16.15
+        },
+        {
+          "date": "2026-08-13",
+          "amount": 8.7
+        },
+        {
+          "date": "2026-08-21",
+          "amount": 18.71
+        },
+        {
+          "date": "2026-08-21",
+          "amount": 24.57
+        },
+        {
+          "date": "2026-08-24",
+          "amount": 12.99
+        }
+      ],
+      "expectedTotalCents": 103772,
+      "referenceComponents": [
+        {
+          "label": "Plus Purchases",
+          "amount": 1024.73,
+          "page": 1
+        },
+        {
+          "label": "Plus Fees",
+          "amount": 12.99,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [
+        [
+          {
+            "label": "Total of New Transactions for",
+            "amount": 772.51,
+            "page": 2
+          },
+          {
+            "label": "Total of New Transactions for",
+            "amount": 252.22,
+            "page": 3
+          },
+          {
+            "label": "Total of Other Account Transactions",
+            "amount": 12.99,
+            "page": 3
+          }
+        ]
+      ],
+      "closingBalanceCents": 196368,
+      "demo": "Same charge twice on one day: the import flags a potential duplicate"
+    },
+    {
+      "id": "sample-b2",
+      "split": "test",
+      "layout": "B",
+      "path": "sample-b2.pdf",
+      "transactions": [
+        {
+          "date": "2026-08-09",
+          "amount": 2.02
+        },
+        {
+          "date": "2026-08-10",
+          "amount": 178.41
+        },
+        {
+          "date": "2026-08-10",
+          "amount": 65.0
+        },
+        {
+          "date": "2026-08-12",
+          "amount": 30.63
+        },
+        {
+          "date": "2026-08-12",
+          "amount": 63.94
+        },
+        {
+          "date": "2026-08-13",
+          "amount": 57.88
+        },
+        {
+          "date": "2026-08-26",
+          "amount": 39.22
+        },
+        {
+          "date": "2026-08-28",
+          "amount": 14.72
+        },
+        {
+          "date": "2026-09-03",
+          "amount": 20.94
+        },
+        {
+          "date": "2026-09-04",
+          "amount": 12.31
+        },
+        {
+          "date": "2026-09-05",
+          "amount": 39.0
+        },
+        {
+          "date": "2026-08-06",
+          "amount": 34.99
+        },
+        {
+          "date": "2026-08-07",
+          "amount": 21.41
+        },
+        {
+          "date": "2026-08-11",
+          "amount": 20.11
+        },
+        {
+          "date": "2026-08-15",
+          "amount": 48.37
+        },
+        {
+          "date": "2026-08-20",
+          "amount": 14.71
+        },
+        {
+          "date": "2026-08-21",
+          "amount": 3.99
+        },
+        {
+          "date": "2026-08-24",
+          "amount": 4.54
+        },
+        {
+          "date": "2026-08-29",
+          "amount": 39.25
+        },
+        {
+          "date": "2026-08-30",
+          "amount": 38.73
+        },
+        {
+          "date": "2026-09-04",
+          "amount": 58.47
+        }
+      ],
+      "expectedTotalCents": 80864,
+      "referenceComponents": [
+        {
+          "label": "Purchases & Other Charges",
+          "amount": 769.64,
+          "page": 1
+        },
+        {
+          "label": "Fees",
+          "amount": 39.0,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [],
+      "closingBalanceCents": 126440
+    },
+    {
+      "id": "sample-c1",
+      "split": "development",
+      "layout": "C",
+      "path": "sample-c1.pdf",
+      "transactions": [
+        {
+          "date": "2026-02-28",
+          "amount": 39.9
+        },
+        {
+          "date": "2026-03-03",
+          "amount": 49.17
+        },
+        {
+          "date": "2026-03-03",
+          "amount": 255.83
+        },
+        {
+          "date": "2026-03-03",
+          "amount": 6.4
+        },
+        {
+          "date": "2026-03-04",
+          "amount": 58.33
+        },
+        {
+          "date": "2026-03-04",
+          "amount": 1.46
+        },
+        {
+          "date": "2026-03-08",
+          "amount": 60.76
+        },
+        {
+          "date": "2026-03-09",
+          "amount": 39.99
+        },
+        {
+          "date": "2026-03-09",
+          "amount": 89.99
+        },
+        {
+          "date": "2026-03-13",
+          "amount": 34.39
+        },
+        {
+          "date": "2026-03-14",
+          "amount": 19.62
+        },
+        {
+          "date": "2026-03-15",
+          "amount": -89.99
+        },
+        {
+          "date": "2026-03-16",
+          "amount": 48.46
+        },
+        {
+          "date": "2026-03-16",
+          "amount": 27.23
+        },
+        {
+          "date": "2026-03-17",
+          "amount": 138.97
+        },
+        {
+          "date": "2026-03-17",
+          "amount": 14.88
+        },
+        {
+          "date": "2026-03-18",
+          "amount": -15.5
+        },
+        {
+          "date": "2026-03-19",
+          "amount": 25.45
+        },
+        {
+          "date": "2026-03-20",
+          "amount": 60.72
+        },
+        {
+          "date": "2026-03-21",
+          "amount": 114.43
+        },
+        {
+          "date": "2026-03-24",
+          "amount": 52.19
+        }
+      ],
+      "expectedTotalCents": 103268,
+      "referenceComponents": [
+        {
+          "label": "Purchases",
+          "amount": 1130.31,
+          "page": 1
+        },
+        {
+          "label": "Other Credits",
+          "amount": -105.49,
+          "page": 1
+        },
+        {
+          "label": "Fees Charged",
+          "amount": 7.86,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [],
+      "closingBalanceCents": 103268,
+      "demo": "Transactions grouped by type, with foreign-currency rows and separate foreign transaction fees"
+    },
+    {
+      "id": "sample-c2",
+      "split": "test",
+      "layout": "C",
+      "path": "sample-c2.pdf",
+      "transactions": [
+        {
+          "date": "2026-03-27",
+          "amount": 38.03
+        },
+        {
+          "date": "2026-03-27",
+          "amount": 5.03
+        },
+        {
+          "date": "2026-03-29",
+          "amount": 15.03
+        },
+        {
+          "date": "2026-03-29",
+          "amount": 315.25
+        },
+        {
+          "date": "2026-03-29",
+          "amount": 7.88
+        },
+        {
+          "date": "2026-03-30",
+          "amount": 13.93
+        },
+        {
+          "date": "2026-04-03",
+          "amount": 62.96
+        },
+        {
+          "date": "2026-04-04",
+          "amount": 19.78
+        },
+        {
+          "date": "2026-04-04",
+          "amount": 37.98
+        },
+        {
+          "date": "2026-04-06",
+          "amount": 4.96
+        },
+        {
+          "date": "2026-04-07",
+          "amount": -67.44
+        },
+        {
+          "date": "2026-04-08",
+          "amount": 11.03
+        },
+        {
+          "date": "2026-04-08",
+          "amount": 28.33
+        },
+        {
+          "date": "2026-04-09",
+          "amount": 95.0
+        },
+        {
+          "date": "2026-04-12",
+          "amount": 36.51
+        },
+        {
+          "date": "2026-04-13",
+          "amount": 27.91
+        },
+        {
+          "date": "2026-04-15",
+          "amount": 75.98
+        },
+        {
+          "date": "2026-04-17",
+          "amount": -18.0
+        },
+        {
+          "date": "2026-04-18",
+          "amount": 6.61
+        },
+        {
+          "date": "2026-04-20",
+          "amount": 6.03
+        },
+        {
+          "date": "2026-04-24",
+          "amount": 11.23
+        }
+      ],
+      "expectedTotalCents": 73402,
+      "referenceComponents": [
+        {
+          "label": "Purchases",
+          "amount": 716.58,
+          "page": 1
+        },
+        {
+          "label": "Other Credits",
+          "amount": -85.44,
+          "page": 1
+        },
+        {
+          "label": "Fees Charged",
+          "amount": 102.88,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [],
+      "closingBalanceCents": 156670
+    },
+    {
+      "id": "sample-d1",
+      "split": "development",
+      "layout": "D",
+      "path": "sample-d1.pdf",
+      "transactions": [
+        {
+          "date": "2025-12-19",
+          "amount": 24.85
+        },
+        {
+          "date": "2025-12-23",
+          "amount": 73.94
+        },
+        {
+          "date": "2025-12-23",
+          "amount": 89.0
+        },
+        {
+          "date": "2025-12-24",
+          "amount": 42.61
+        },
+        {
+          "date": "2025-12-25",
+          "amount": -89.0
+        },
+        {
+          "date": "2025-12-30",
+          "amount": 9.25
+        },
+        {
+          "date": "2025-12-31",
+          "amount": 19.42
+        },
+        {
+          "date": "2026-01-03",
+          "amount": 12.53
+        },
+        {
+          "date": "2026-01-04",
+          "amount": 39.76
+        },
+        {
+          "date": "2026-01-06",
+          "amount": 34.89
+        },
+        {
+          "date": "2026-01-10",
+          "amount": 6.49
+        },
+        {
+          "date": "2026-01-14",
+          "amount": 12.57
+        },
+        {
+          "date": "2025-12-20",
+          "amount": 23.62
+        },
+        {
+          "date": "2025-12-23",
+          "amount": 5.71
+        },
+        {
+          "date": "2025-12-24",
+          "amount": 22.4
+        },
+        {
+          "date": "2026-01-08",
+          "amount": 6.8
+        },
+        {
+          "date": "2026-01-12",
+          "amount": 40.5
+        },
+        {
+          "date": "2026-01-14",
+          "amount": 55.86
+        }
+      ],
+      "expectedTotalCents": null,
+      "referenceComponents": null,
+      "referenceAlternatives": [],
+      "closingBalanceCents": 43120,
+      "demo": "No printed purchase total: the app refuses the PDF and imports no rows, rather than guess a total"
+    },
+    {
+      "id": "sample-d2",
+      "split": "test",
+      "layout": "D",
+      "path": "sample-d2.pdf",
+      "transactions": [
+        {
+          "date": "2026-01-18",
+          "amount": 8.96
+        },
+        {
+          "date": "2026-01-19",
+          "amount": 35.37
+        },
+        {
+          "date": "2026-01-25",
+          "amount": 51.84
+        },
+        {
+          "date": "2026-01-27",
+          "amount": 6.34
+        },
+        {
+          "date": "2026-01-30",
+          "amount": 49.7
+        },
+        {
+          "date": "2026-01-31",
+          "amount": 88.49
+        },
+        {
+          "date": "2026-02-04",
+          "amount": 4.23
+        },
+        {
+          "date": "2026-02-05",
+          "amount": 600.0
+        },
+        {
+          "date": "2026-02-06",
+          "amount": -600.0
+        },
+        {
+          "date": "2026-02-06",
+          "amount": 100.0
+        },
+        {
+          "date": "2026-02-09",
+          "amount": 18.8
+        },
+        {
+          "date": "2026-02-10",
+          "amount": 7.39
+        },
+        {
+          "date": "2026-01-16",
+          "amount": 50.03
+        },
+        {
+          "date": "2026-01-16",
+          "amount": 6.1
+        },
+        {
+          "date": "2026-01-17",
+          "amount": 29.54
+        },
+        {
+          "date": "2026-01-22",
+          "amount": 6.37
+        },
+        {
+          "date": "2026-01-29",
+          "amount": 24.31
+        },
+        {
+          "date": "2026-02-02",
+          "amount": 17.73
+        },
+        {
+          "date": "2026-02-03",
+          "amount": 14.24
+        }
+      ],
+      "expectedTotalCents": null,
+      "referenceComponents": null,
+      "referenceAlternatives": [],
+      "closingBalanceCents": 55064
+    },
+    {
+      "id": "sample-e1",
+      "split": "development",
+      "layout": "E",
+      "path": "sample-e1.pdf",
+      "transactions": [
+        {
+          "date": "2026-03-02",
+          "amount": 38.08
+        },
+        {
+          "date": "2026-03-03",
+          "amount": 15.48
+        },
+        {
+          "date": "2026-03-04",
+          "amount": 14.4
+        },
+        {
+          "date": "2026-03-05",
+          "amount": 92.48
+        },
+        {
+          "date": "2026-03-05",
+          "amount": 101.57
+        },
+        {
+          "date": "2026-03-07",
+          "amount": 19.1
+        },
+        {
+          "date": "2026-03-08",
+          "amount": 9.13
+        },
+        {
+          "date": "2026-03-09",
+          "amount": 42.34
+        },
+        {
+          "date": "2026-03-10",
+          "amount": -24.99
+        },
+        {
+          "date": "2026-03-11",
+          "amount": 38.49
+        },
+        {
+          "date": "2026-03-14",
+          "amount": 27.06
+        },
+        {
+          "date": "2026-03-21",
+          "amount": 18.91
+        },
+        {
+          "date": "2026-03-26",
+          "amount": 113.21
+        },
+        {
+          "date": "2026-03-26",
+          "amount": 65.42
+        },
+        {
+          "date": "2026-03-26",
+          "amount": 39.96
+        },
+        {
+          "date": "2026-03-28",
+          "amount": 27.2
+        },
+        {
+          "date": "2026-03-31",
+          "amount": 31.17
+        }
+      ],
+      "expectedTotalCents": null,
+      "referenceComponents": null,
+      "referenceAlternatives": [],
+      "closingBalanceCents": 66901
+    },
+    {
+      "id": "sample-e2",
+      "split": "test",
+      "layout": "E",
+      "path": "sample-e2.pdf",
+      "transactions": [
+        {
+          "date": "2026-04-01",
+          "amount": 23.6
+        },
+        {
+          "date": "2026-04-06",
+          "amount": 4.5
+        },
+        {
+          "date": "2026-04-06",
+          "amount": 4.5
+        },
+        {
+          "date": "2026-04-07",
+          "amount": 8.69
+        },
+        {
+          "date": "2026-04-08",
+          "amount": 4.17
+        },
+        {
+          "date": "2026-04-08",
+          "amount": 12.87
+        },
+        {
+          "date": "2026-04-10",
+          "amount": 71.55
+        },
+        {
+          "date": "2026-04-13",
+          "amount": 188.54
+        },
+        {
+          "date": "2026-04-15",
+          "amount": 51.09
+        },
+        {
+          "date": "2026-04-17",
+          "amount": 22.44
+        },
+        {
+          "date": "2026-04-18",
+          "amount": 34.18
+        },
+        {
+          "date": "2026-04-19",
+          "amount": 58.93
+        },
+        {
+          "date": "2026-04-20",
+          "amount": 52.18
+        },
+        {
+          "date": "2026-04-20",
+          "amount": -12.75
+        },
+        {
+          "date": "2026-04-24",
+          "amount": 3.5
+        },
+        {
+          "date": "2026-04-25",
+          "amount": 53.15
+        },
+        {
+          "date": "2026-04-26",
+          "amount": 14.14
+        },
+        {
+          "date": "2026-04-26",
+          "amount": 14.01
+        },
+        {
+          "date": "2026-04-29",
+          "amount": 32.3
+        },
+        {
+          "date": "2026-04-30",
+          "amount": 37.52
+        }
+      ],
+      "expectedTotalCents": null,
+      "referenceComponents": null,
+      "referenceAlternatives": [],
+      "closingBalanceCents": 104812
+    },
+    {
+      "id": "sample-f1",
+      "split": "development",
+      "layout": "F",
+      "path": "sample-f1.pdf",
+      "transactions": [
+        {
+          "date": "2026-05-01",
+          "amount": 44.5
+        },
+        {
+          "date": "2026-05-02",
+          "amount": 20.9
+        },
+        {
+          "date": "2026-05-03",
+          "amount": 16.99
+        },
+        {
+          "date": "2026-05-09",
+          "amount": 36.68
+        },
+        {
+          "date": "2026-05-10",
+          "amount": 27.23
+        },
+        {
+          "date": "2026-05-12",
+          "amount": 30.12
+        },
+        {
+          "date": "2026-05-13",
+          "amount": 49.38
+        },
+        {
+          "date": "2026-05-13",
+          "amount": 15.71
+        },
+        {
+          "date": "2026-05-14",
+          "amount": 9.32
+        },
+        {
+          "date": "2026-05-14",
+          "amount": 28.29
+        },
+        {
+          "date": "2026-05-15",
+          "amount": 24.02
+        },
+        {
+          "date": "2026-05-16",
+          "amount": 48.02
+        },
+        {
+          "date": "2026-05-16",
+          "amount": -8.2
+        },
+        {
+          "date": "2026-05-18",
+          "amount": 18.1
+        },
+        {
+          "date": "2026-05-19",
+          "amount": 41.02
+        },
+        {
+          "date": "2026-05-21",
+          "amount": 65.98
+        },
+        {
+          "date": "2026-05-21",
+          "amount": 23.97
+        },
+        {
+          "date": "2026-05-21",
+          "amount": 17.91
+        },
+        {
+          "date": "2026-05-26",
+          "amount": 11.47
+        },
+        {
+          "date": "2026-05-26",
+          "amount": 44.71
+        },
+        {
+          "date": "2026-05-29",
+          "amount": 52.08
+        },
+        {
+          "date": "2026-05-30",
+          "amount": 17.15
+        },
+        {
+          "date": "2026-05-31",
+          "amount": 120.0
+        }
+      ],
+      "expectedTotalCents": 75535,
+      "referenceComponents": [
+        {
+          "label": "New purchases (net of returns)",
+          "amount": 635.35,
+          "page": 1
+        },
+        {
+          "label": "Fees and charges",
+          "amount": 120.0,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [
+        [
+          {
+            "label": "Total",
+            "amount": 755.35,
+            "page": 1
+          }
+        ],
+        [
+          {
+            "label": "Groceries total",
+            "amount": 273.82,
+            "page": 2
+          },
+          {
+            "label": "Dining total",
+            "amount": 223.59,
+            "page": 2
+          },
+          {
+            "label": "Shopping total",
+            "amount": 79.83,
+            "page": 2
+          },
+          {
+            "label": "Entertainment total",
+            "amount": 41.12,
+            "page": 2
+          },
+          {
+            "label": "Subscriptions total",
+            "amount": 16.99,
+            "page": 2
+          },
+          {
+            "label": "Fees and charges total",
+            "amount": 120.0,
+            "page": 2
+          }
+        ]
+      ],
+      "closingBalanceCents": 75535,
+      "demo": "Transactions grouped by spending category, with points per row"
+    },
+    {
+      "id": "sample-f2",
+      "split": "test",
+      "layout": "F",
+      "path": "sample-f2.pdf",
+      "transactions": [
+        {
+          "date": "2026-06-03",
+          "amount": 16.99
+        },
+        {
+          "date": "2026-06-04",
+          "amount": 123.91
+        },
+        {
+          "date": "2026-06-05",
+          "amount": 79.86
+        },
+        {
+          "date": "2026-06-05",
+          "amount": 8.61
+        },
+        {
+          "date": "2026-06-06",
+          "amount": 7.65
+        },
+        {
+          "date": "2026-06-07",
+          "amount": 8.73
+        },
+        {
+          "date": "2026-06-09",
+          "amount": 18.21
+        },
+        {
+          "date": "2026-06-10",
+          "amount": -16.0
+        },
+        {
+          "date": "2026-06-11",
+          "amount": 5.85
+        },
+        {
+          "date": "2026-06-12",
+          "amount": 34.12
+        },
+        {
+          "date": "2026-06-13",
+          "amount": 16.64
+        },
+        {
+          "date": "2026-06-13",
+          "amount": 27.17
+        },
+        {
+          "date": "2026-06-14",
+          "amount": 41.32
+        },
+        {
+          "date": "2026-06-15",
+          "amount": 22.01
+        },
+        {
+          "date": "2026-06-18",
+          "amount": 17.77
+        },
+        {
+          "date": "2026-06-21",
+          "amount": 46.04
+        },
+        {
+          "date": "2026-06-22",
+          "amount": 19.75
+        },
+        {
+          "date": "2026-06-22",
+          "amount": 5.38
+        },
+        {
+          "date": "2026-06-23",
+          "amount": 59.23
+        },
+        {
+          "date": "2026-06-23",
+          "amount": 8.23
+        },
+        {
+          "date": "2026-06-24",
+          "amount": 21.18
+        },
+        {
+          "date": "2026-06-24",
+          "amount": 158.06
+        },
+        {
+          "date": "2026-06-25",
+          "amount": 136.55
+        },
+        {
+          "date": "2026-06-25",
+          "amount": 15.34
+        }
+      ],
+      "expectedTotalCents": 88260,
+      "referenceComponents": [
+        {
+          "label": "New purchases (net of returns)",
+          "amount": 882.6,
+          "page": 1
+        }
+      ],
+      "referenceAlternatives": [
+        [
+          {
+            "label": "Total",
+            "amount": 882.6,
+            "page": 1
+          }
+        ],
+        [
+          {
+            "label": "Groceries total",
+            "amount": 222.02,
+            "page": 2
+          },
+          {
+            "label": "Dining total",
+            "amount": 114.44,
+            "page": 2
+          },
+          {
+            "label": "Transport total",
+            "amount": 39.99,
+            "page": 2
+          },
+          {
+            "label": "Shopping total",
+            "amount": 418.52,
+            "page": 2
+          },
+          {
+            "label": "Health total",
+            "amount": 15.34,
+            "page": 2
+          },
+          {
+            "label": "Entertainment total",
+            "amount": 55.3,
+            "page": 2
+          },
+          {
+            "label": "Subscriptions total",
+            "amount": 16.99,
+            "page": 3
+          }
+        ]
+      ],
+      "closingBalanceCents": 88260
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "cases": [
+    {
+      "id": "invented-duplicate-rows",
+      "split": "development",
+      "path": "/tmp/invented-statement.pdf",
+      "transactions": [
+        { "date": "2026-01-31", "amount": 10.00 },
+        { "date": "2026-01-31", "amount": 10.00 },
+        { "date": "2026-02-02", "amount": -2.00 }
+      ],
+      "expectedTotalCents": 1800,
+      "referenceComponents": [
+        { "label": "Net purchases", "amount": 18.00, "page": 1 }
+      ],
+      "referenceAlternatives": [
+        [
+          { "label": "Purchases", "amount": 20.00, "page": 2 },
+          { "label": "Refunds", "amount": -2.00, "page": 2 }
+        ]
+      ]
+    }
+  ]
+}

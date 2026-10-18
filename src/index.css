@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* Four typography roles shared by utility classes and scoped component CSS. */
+:root {
+  --font-size-heading1: 24px;
+  --line-height-heading1: 32px;
+  --font-size-heading2: 18px;
+  --line-height-heading2: 28px;
+  --font-size-body1: 14px;
+  --line-height-body1: 20px;
+  --font-size-body2: 12px;
+  --line-height-body2: 16px;
+}
+
+@theme {
+  --text-heading1: var(--font-size-heading1);
+  --text-heading1--line-height: var(--line-height-heading1);
+  --text-heading1--font-weight: 600;
+  --text-heading2: var(--font-size-heading2);
+  --text-heading2--line-height: var(--line-height-heading2);
+  --text-heading2--font-weight: 600;
+  --text-body1: var(--font-size-body1);
+  --text-body1--line-height: var(--line-height-body1);
+  --text-body1--font-weight: 400;
+  --text-body2: var(--font-size-body2);
+  --text-body2--line-height: var(--line-height-body2);
+  --text-body2--font-weight: 400;
+
+  /* Keep existing utility callers on the same four roles. */
+  --text-xs: var(--font-size-body2);
+  --text-xs--line-height: var(--line-height-body2);
+  --text-xs--font-weight: 400;
+  --text-sm: var(--font-size-body1);
+  --text-sm--line-height: var(--line-height-body1);
+  --text-sm--font-weight: 400;
+  --text-base: var(--font-size-body1);
+  --text-base--line-height: var(--line-height-body1);
+  --text-base--font-weight: 400;
+  --text-lg: var(--font-size-heading2);
+  --text-lg--line-height: var(--line-height-heading2);
+  --text-lg--font-weight: 600;
+  --text-xl: var(--font-size-heading2);
+  --text-xl--line-height: var(--line-height-heading2);
+  --text-xl--font-weight: 600;
+  --text-2xl: var(--font-size-heading1);
+  --text-2xl--line-height: var(--line-height-heading1);
+  --text-2xl--font-weight: 600;
+  --font-weight-normal: 400;
+  --font-weight-medium: 600;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 600;
+}
+
+@layer base {
+  h1 {
+    font-size: var(--font-size-heading1);
+    line-height: var(--line-height-heading1);
+    font-weight: 600;
+  }
+
+  h2, h3 {
+    font-size: var(--font-size-heading2);
+    line-height: var(--line-height-heading2);
+    font-weight: 600;
+  }
+}
+
+body {
+  font-size: var(--font-size-body1);
+  line-height: var(--line-height-body1);
+  font-weight: 400;
+  font-family: 'Inter', sans-serif;
+  background-color: #f8fafc;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Many components use Tailwind's outline-none to suppress the default focus
+   ring in favor of a focus:ring-* utility, but plenty of compact controls
+   (table cell inputs, filter selects) never got a replacement ring. This
+   restores a visible focus indicator everywhere, including through
+   outline-none, since it's declared after the Tailwind import and ties. */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Avoid automatic input zoom on touch devices. */
+@media (pointer: coarse) {
+  input, select, textarea {
+    font-size: 16px;
+  }
+}

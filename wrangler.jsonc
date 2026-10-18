@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "divvy",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-08-13",
+  "compatibility_flags": ["nodejs_compat"],
+  // Run near D1 (WNAM): each request makes several sequential D1 queries.
+  "placement": { "mode": "smart" },
+  "assets": {
+    "directory": "./dist/",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "divvy",
+      "database_id": "f9a61e08-6c70-47a4-b791-9bb1fb757fe4",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

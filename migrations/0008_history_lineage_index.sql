@@ -1,0 +1,1 @@
+CREATE INDEX `history_lineage_idx` ON `expense_history` (`household_id`,`target_row_id`,`source_row_id`);
