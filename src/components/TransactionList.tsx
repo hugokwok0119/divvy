@@ -2,9 +2,10 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import type { Transaction, QueueItem, QueueItemInput, Member, Card, TxPatch, ClosingSnapshot } from '../types';
 import { generateId } from '../constants';
+import { distributeByWeight } from '../lib/settlement';
 import { closedCycleCard, formatCents, formatCentsWithSymbol, parseAmountToCents } from '../lib/money';
 import { api, ApiError } from '../lib/api';
-import { customPercentagesError, parsePercentageDraft } from '../lib/percentages';
+import { amountWeightsError, customPercentagesError, formatPercentage, parsePercentageDraft, percentagesFromAmounts } from '../lib/percentages';
 import { buildCategorySuggestions } from '../lib/category';
 import { isDemoMode } from '../lib/demo-mode';
 import CategorySuggestions from './CategorySuggestions';
@@ -580,12 +581,22 @@ export default function TransactionList(props: TransactionListProps) {
   };
   const splitFields = (
     draft: ExpenseDraft, update: (next: ExpenseDraft) => void, disabled: boolean,
-    onDone?: () => void, onCancel?: () => void,
+    onDone?: () => void, onCancel?: () => void, showShares = true,
   ) => {
     const allocation = draft.customAllocation;
+    const byAmount = allocation?.mode === 'amount';
     let percentages: Record<string, number> = {};
+    let amountCents: Record<string, number> = {};
     let error = '';
-    if (allocation) {
+    if (allocation && byAmount) {
+      try {
+        amountCents = Object.fromEntries(Object.entries(allocation.amounts ?? {}).map(([id, text]) => [id, text.trim() ? parseAmountToCents(text) : 0]));
+        error = amountWeightsError(amountCents) ?? '';
+        if (!error) percentages = percentagesFromAmounts(amountCents);
+      } catch {
+        error = 'Enter a valid amount for each member.';
+      }
+    } else if (allocation) {
       try {
         percentages = Object.fromEntries(Object.entries(allocation.percentages).map(([id, text]) => [id, parsePercentageDraft(text)]));
         error = customPercentagesError(percentages) ?? '';
@@ -593,6 +604,17 @@ export default function TransactionList(props: TransactionListProps) {
         error = cause instanceof Error ? cause.message : 'Enter valid percentages.';
       }
     }
+    let shares: Record<string, number> | null = null;
+    try {
+      if (byAmount && showShares && !error) shares = distributeByWeight(parseAmountToCents(draft.amount), percentages);
+    } catch {
+      /* No bill amount yet: the dialog still shows the subtotal. */
+    }
+    const allocationMembers = allocation ? members.filter(member => !member.archivedAt || member.id in allocation.percentages) : [];
+    const setMode = (mode: 'percent' | 'amount') => allocation && update({ ...draft, customAllocation: {
+      ...allocation, mode, finished: false,
+      amounts: allocation.amounts ?? Object.fromEntries(allocationMembers.map(member => [member.id, ''])),
+    } });
     return <>
       {!onCancel && <label className="ledger-allocation-field text-xs text-slate-600">Split
         <select aria-label="Split" value={allocation ? 'custom' : draft.splitType} disabled={disabled} className={control} onChange={e => {
@@ -613,14 +635,28 @@ export default function TransactionList(props: TransactionListProps) {
         </select>
       </label>}
       {!allocation && draft.splitType === 'custom' && <button type="button" className={button} disabled={disabled} onClick={() => update(openAllocation(draft))}>Edit allocation</button>}
-      {allocation && members.filter(member => !member.archivedAt || member.id in allocation.percentages).map(member => <label key={member.id} className="ledger-allocation-field text-xs text-slate-600">{member.displayName} %
+      {allocation && <div className="ledger-allocation-mode col-span-full" role="group" aria-label="Split by">
+        <button type="button" aria-pressed={!byAmount} disabled={disabled} onClick={() => setMode('percent')}>Percentage (%)</button>
+        <button type="button" aria-pressed={byAmount} disabled={disabled} onClick={() => setMode('amount')}>Item amounts ($)</button>
+      </div>}
+      {byAmount && <p className="ledger-allocation-hint col-span-full">Enter what each person ordered before tax and tip. The full bill is split in the same proportion.</p>}
+      {allocation && allocationMembers.map(member => byAmount
+        ? <label key={member.id} className="ledger-allocation-field text-xs text-slate-600"><span>{member.displayName} ${shares && <span className="ledger-allocation-share"> · pays {formatCentsWithSymbol(shares[member.id] ?? 0)}</span>}</span>
+          <input aria-label={`${member.displayName} amount`} type="text" inputMode="decimal" placeholder="0.00"
+            value={allocation.amounts?.[member.id] ?? ''} disabled={disabled} className={control}
+            onChange={e => update({ ...draft, customAllocation: { ...allocation, finished: false, amounts: { ...allocation.amounts, [member.id]: e.target.value } } })}
+            onBlur={() => update({ ...draft, customAllocation: { ...allocation, finished: true } })} />
+        </label>
+        : <label key={member.id} className="ledger-allocation-field text-xs text-slate-600">{member.displayName} %
         <input aria-label={`${member.displayName} percentage`} type="text" inputMode="decimal"
           value={allocation.percentages[member.id] ?? '0'} disabled={disabled} className={control}
-          onChange={e => update({ ...draft, customAllocation: { percentages: { ...allocation.percentages, [member.id]: e.target.value } } })}
+          onChange={e => update({ ...draft, customAllocation: { ...allocation, finished: false, percentages: { ...allocation.percentages, [member.id]: e.target.value } } })}
           onBlur={() => update({ ...draft, customAllocation: { ...allocation, finished: true } })} />
       </label>)}
       {allocation && <footer className="ledger-allocation-footer col-span-full">
-        <p className="ledger-allocation-total"><span>Total</span><strong>{Object.keys(percentages).length === Object.keys(allocation.percentages).length ? Object.values(percentages).reduce((sum, value) => sum + value, 0) : '—'}%</strong></p>
+        {byAmount
+          ? <p className="ledger-allocation-total"><span>Subtotal</span><strong>{error ? '—' : formatCentsWithSymbol(Object.values(amountCents).reduce((sum, value) => sum + value, 0))}</strong></p>
+          : <p className="ledger-allocation-total"><span>Total</span><strong>{Object.keys(percentages).length === Object.keys(allocation.percentages).length ? Object.values(percentages).reduce((sum, value) => sum + value, 0) : '—'}%</strong></p>}
         {allocation.finished && error && <p role="alert" className="text-sm text-red-700 mb-2">{error}</p>}
         <button type="button" className={`${button}${onCancel ? ' ledger-primary' : ''}`} disabled={disabled || !!error} onClick={() => {
           update({ ...draft, customAllocation: undefined, splitType: 'custom', splitRule: { percentages } });
@@ -655,7 +691,7 @@ export default function TransactionList(props: TransactionListProps) {
   const splitControls = (row: LedgerRow, draft: ExpenseDraft, disabled: boolean) => {
     const chosen = draft.splitType === 'single' ? draft.splitRule?.memberId : null;
     const splitMembers = members.filter((member) => !member.archivedAt || member.id === chosen || (draft.splitType === 'custom' && member.id in (draft.splitRule?.percentages ?? {})));
-    const allocationSummary = Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => `${members.find(m => m.id === id)?.displayName ?? 'Former member'} ${value}%`).join(' · ');
+    const allocationSummary = Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => `${members.find(m => m.id === id)?.displayName ?? 'Former member'} ${formatPercentage(value)}`).join(' · ');
     const indicator = (background: string) => <span aria-hidden="true" className="ledger-split-line" style={{ background }} />;
     return <div className="ledger-split" aria-label="Split between" data-read-only={readOnly || undefined}>
       <button type="button" className="ledger-icon ledger-split-button ledger-equal" aria-label={`Split ${draft.store || 'expense'} equally`} title="Everyone equally" aria-pressed={draft.splitType === 'equal'} disabled={disabled || readOnly} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'equal', splitRule: null })); closeAllocation(); }}>
@@ -904,7 +940,7 @@ export default function TransactionList(props: TransactionListProps) {
             }}><header className="ledger-allocation-heading"><h3 className="font-semibold">Custom split</h3><button type="button" className="ledger-icon" aria-label="Close bulk allocation" onClick={closeBulkAllocation}><X size={18} aria-hidden="true" /></button></header><p className="ledger-allocation-merchant">{selected.size} selected expenses</p><div className="ledger-allocation-fields">{splitFields(bulkSplit, next => {
               if (next.customAllocation) setBulkSplit(next);
               else { stageBulk(draft => ({ ...draft, splitType: next.splitType, splitRule: next.splitRule })); setBulkSplit(null); }
-            }, allBusy || busy.size > 0, closeBulkAllocation, closeBulkAllocation)}</div></dialog>}
+            }, allBusy || busy.size > 0, closeBulkAllocation, closeBulkAllocation, false)}</div></dialog>}
             {confirmBulkDelete && <dialog ref={bulkDeleteDialog} className="ledger-delete-dialog" aria-label="Confirm bulk deletion" onCancel={event => { event.preventDefault(); closeBulkDelete(); }} onClick={event => {
               if (event.target !== event.currentTarget) return;
               const box = event.currentTarget.getBoundingClientRect();
@@ -970,7 +1006,7 @@ export default function TransactionList(props: TransactionListProps) {
                 }}>
                   <header className="ledger-allocation-heading"><h3 id={`allocation-title-${item.expenseId}`} className="font-semibold">Custom split</h3><button type="button" className="ledger-icon" aria-label="Close custom split" onClick={closeAllocation}><X size={18} aria-hidden="true" /></button></header>
                   <p className="ledger-allocation-merchant">{draft.store || 'Expense'} · {formatCentsWithSymbol(item.amountCents ?? 0)}</p>
-                  {readOnly ? <><dl className="ledger-allocation-values">{Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => <div key={id}><dt>{members.find(member => member.id === id)?.displayName ?? 'Former member'}</dt><dd>{value}%</dd></div>)}</dl><footer className="ledger-allocation-footer"><button className={button} onClick={closeAllocation}>Close allocation</button></footer></>
+                  {readOnly ? <><dl className="ledger-allocation-values">{Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => <div key={id}><dt>{members.find(member => member.id === id)?.displayName ?? 'Former member'}</dt><dd>{formatPercentage(value)}</dd></div>)}</dl><footer className="ledger-allocation-footer"><button className={button} onClick={closeAllocation}>Close allocation</button></footer></>
                     : <div className="ledger-allocation-fields">{splitFields(draft, (next) => completedEdit(row, () => next), disabled, closeAllocation, closeAllocation)}</div>}
                 </dialog>}
                 {(errors[item.expenseId] || amountErrors[item.expenseId]) && <p role="alert" className="ledger-note text-red-700">{errors[item.expenseId] || amountErrors[item.expenseId]}</p>}
