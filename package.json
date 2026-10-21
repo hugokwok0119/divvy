@@ -9,7 +9,9 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply divvy --local",
-    "db:migrate:remote": "wrangler d1 migrations apply divvy --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply divvy --remote",
+    "seed:local": "node scripts/seed-demo.ts --target local",
+    "seed:staging": "node scripts/seed-demo.ts --target staging"
   },
   "dependencies": {
     "better-auth": "^1.6.28",

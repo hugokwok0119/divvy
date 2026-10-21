@@ -58,7 +58,18 @@ npm run dev
 
 Vite serves the app on <http://localhost:3000> and forwards `/api` to the Worker on port 8787.
 
-<!-- seed -->
+### Sign in locally without Google
+
+Seed the local database with a fictional household and print a login cookie:
+
+```bash
+npm run seed:local
+```
+
+Open <http://localhost:8787> (or <http://localhost:3000> with `npm run dev`), open the browser
+console, paste the printed `document.cookie=...` line and reload. `seed:local` wipes the app
+tables in your local database before filling them. `npm run seed:staging` does the same for the
+staging database and reads its secret from `.dev.vars.staging`. There is no production option.
 
 ## Tests
 
