@@ -29,4 +29,5 @@ Add one label: feature, fix or chore. It decides the release-notes section.
 
 ## Related
 
-Closes #
+<!-- Into dev: `Refs #N`. Into main (release or hotfix): `Closes #N` for every issue it ships. -->
+Refs #

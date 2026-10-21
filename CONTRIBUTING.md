@@ -22,8 +22,14 @@ moved or deleted.
   title becomes the commit message on `dev`.
 - The release pull request from `dev` into `main` uses a merge commit, so the two branches keep
   a shared history.
-- Each pull request links its issue with `Closes #N` and carries one label: `feature`, `fix` or
-  `chore`. The label decides where the change appears in the release notes.
+- Each pull request carries one label: `feature`, `fix` or `chore`. The label decides where the
+  change appears in the release notes.
+- Issues are linked and closed by pull requests, never by hand. GitHub links and closes an issue
+  only from a pull request into the default branch (`main`), so:
+  - a pull request into `dev` names its issue with `Refs #N`;
+  - the release pull request into `main` lists `Closes #N` for every issue it ships, which links
+    each issue to the release and closes it on merge;
+  - a hotfix pull request into `main` uses `Closes #N` directly.
 - The owner reviews and merges every pull request.
 
 ## Tests
