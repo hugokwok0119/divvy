@@ -19,5 +19,19 @@
       "database_id": "f9a61e08-6c70-47a4-b791-9bb1fb757fe4",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  // Bindings are not inherited, so staging names its own database.
+  "env": {
+    "staging": {
+      "name": "divvy-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "divvy-staging",
+          "database_id": "41badd28-86b8-42bf-8d96-b3bc62d03cb2",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
 }
