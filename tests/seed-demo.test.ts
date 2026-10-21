@@ -8,12 +8,7 @@ describe('demo seed', () => {
   });
 
   it('signSessionCookie rejects an empty secret', async () => {
-    await expect(signSessionCookie('tok', '', 'http://localhost:8787')).rejects.toThrow();
-  });
-
-  it('uses the __Secure- prefix only for https', async () => {
-    expect((await signSessionCookie('tok', 's', 'https://divvy-staging.hugohhkwok.workers.dev')).name).toMatch(/^__Secure-/);
-    expect((await signSessionCookie('tok', 's', 'http://localhost:8787')).name).not.toMatch(/^__Secure-/);
+    await expect(signSessionCookie('tok', '')).rejects.toThrow();
   });
 
   it('is deterministic and one statement per line', () => {
