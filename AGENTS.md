@@ -13,3 +13,19 @@ Use four shared typography roles: Heading 1 (24px, semibold), Heading 2 (18px, s
 When one or more expenses are selected, bulk editing uses a floating toolbar fixed near the viewport bottom and aligned to the ledger width. Preserve access to the last rows and allow the toolbar itself to scroll if its controls exceed the available height.
 
 Typography settings live in `src/index.css`. Prefer `text-heading1`, `text-heading2`, `text-body1`, and `text-body2` for new UI. Existing size utilities are aliases to those roles for compatibility.
+
+# Workflow for agents
+
+These rules apply to every agent working in this repository. `CONTRIBUTING.md` has the full detail.
+
+- Work on a `feat/*`, `fix/*` or `chore/*` branch cut from `dev`, and open a pull request into `dev`, the default branch. Never push to `dev` or `main` directly; rulesets reject it.
+- Pull request titles are Conventional Commits. Each pull request carries one label (`feature`, `fix` or `chore`) and follows `.github/pull_request_template.md`.
+- An issue is linked to and closed by the pull request that makes the change:
+  - a pull request into `dev` puts `Closes #N` in its body;
+  - the release pull request from `dev` into `main` lists the issues it ships without closing keywords;
+  - a hotfix pull request into `main` cannot close by keyword, so link the issue in the pull request's Development sidebar before merging.
+- Never close an issue by hand unless the issue already lists its fixing pull request as linked. A comment or a cross-reference is not a link.
+- Run focused tests for the files you change. CI runs the full suite. Never merge on red CI, and never use `git commit --no-verify`.
+- Migrations only add tables, columns or indexes. Dropping or renaming takes two releases.
+- Staging deploys automatically from `dev`. Production deploys only from a `vX.Y.Z` tag on `main`, after the owner approves in the `production` environment. Never deploy production by hand with `wrangler deploy`.
+- Never print, commit or paste secrets. `.dev.vars*` files are gitignored and stay local.

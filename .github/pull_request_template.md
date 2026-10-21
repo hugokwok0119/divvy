@@ -29,4 +29,5 @@ Add one label: feature, fix or chore. It decides the release-notes section.
 
 ## Related
 
+<!-- Into dev: `Closes #N`. Release into main: list shipped issues without keywords. Hotfix into main: link the issue in the Development sidebar. -->
 Closes #
