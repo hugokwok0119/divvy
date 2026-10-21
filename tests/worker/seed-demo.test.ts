@@ -9,8 +9,9 @@ describe('demo seed', () => {
 
   it('seeded cookie opens bootstrap', async () => {
     await env.DB.exec(buildSeedSql({ now: Date.now(), sessionToken: 'tok' }));
-    const { name, value } = await signSessionCookie('tok', (await createAuth(testEnv).$context).secret, 'http://localhost');
-    const res = await workerApp.request('http://localhost/api/bootstrap', { headers: { Cookie: `${name}=${value}` } }, testEnv);
+    // Staging is served over https; the cookie must be the one the Worker reads there.
+    const { name, value } = await signSessionCookie('tok', (await createAuth(testEnv).$context).secret);
+    const res = await workerApp.request('https://divvy-staging.hugohhkwok.workers.dev/api/bootstrap', { headers: { Cookie: `${name}=${value}` } }, testEnv);
     expect(res.status).toBe(200);
     const body = await res.json() as {
       household: { name: string }; members: unknown[]; transactions: unknown[]; queue: unknown[]; me: { role: string };

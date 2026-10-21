@@ -36,9 +36,11 @@ export function resolveTarget(name: string): SeedTarget {
   return target;
 }
 
-export async function signSessionCookie(token: string, secret: string, baseURL: string): Promise<{ name: string; value: string }> {
+export async function signSessionCookie(token: string, secret: string): Promise<{ name: string; value: string }> {
   if (!secret) throw new Error('BETTER_AUTH_SECRET is empty');
-  const name = getCookies({ baseURL }).sessionToken.name;
+  // Same options as worker/auth.ts, which sets no baseURL, so the Worker reads the unprefixed
+  // name on http and https alike. A baseURL here would add __Secure- and the Worker would ignore it.
+  const name = getCookies({}).sessionToken.name;
   const serialized = await serializeSignedCookie(name, token, secret);
   return { name, value: serialized.split(';')[0].slice(name.length + 1) };
 }
