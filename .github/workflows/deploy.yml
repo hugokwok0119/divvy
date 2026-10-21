@@ -32,4 +32,4 @@ jobs:
       # A failed migration fails this step, so the deploy below never runs.
       - run: npx wrangler d1 migrations apply divvy-staging --env staging --remote
       - run: npx wrangler deploy --env staging
-      - run: curl -fsS https://divvy-staging.hugohhkwok.workers.dev/ -o /dev/null
+      - run: curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://divvy-staging.hugohhkwok.workers.dev/ -o /dev/null
