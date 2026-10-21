@@ -24,13 +24,27 @@ moved or deleted.
   a shared history.
 - Each pull request carries one label: `feature`, `fix` or `chore`. The label decides where the
   change appears in the release notes.
-- An issue is linked to and closed by the pull request that makes the change, never by hand.
-  GitHub reads `Closes #N` only on pull requests into the default branch, which is `dev`, so:
-  - a pull request into `dev` uses `Closes #N`;
-  - the release pull request into `main` lists the issues it ships without closing keywords;
-  - a hotfix pull request into `main` cannot close by keyword: link the issue from the pull
-    request's **Development** sidebar before merging.
+- Each pull request closes exactly one issue. See [Issue tracking](#issue-tracking).
 - The owner reviews and merges every pull request.
+
+## Issue tracking
+
+Every change starts with an issue and ends with the pull request that closes it.
+
+1. **Open the issue first.** Before you write code or docs, open an issue that describes the
+   problem or the change. Do not start work, or cut a branch, without one.
+2. **One issue, one pull request.** Each pull request matches exactly one issue. If the work
+   grows, open a new issue for the extra part and give it its own pull request.
+3. **The pull request closes its issue.** GitHub reads `Closes #N` only on pull requests into
+   the default branch, which is `dev`, so:
+   - a pull request into `dev` puts `Closes #N` in its body;
+   - a hotfix pull request into `main` cannot close by keyword: link the issue from the pull
+     request's **Development** sidebar before merging.
+4. **Never close an issue by hand**, unless the issue already lists its fixing pull request as
+   linked. A comment or a cross-reference is not a link.
+
+The release pull request from `dev` into `main` is the only pull request without an issue of
+its own. It lists the issues it ships, without closing keywords.
 
 ## Tests
 

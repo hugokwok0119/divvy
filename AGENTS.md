@@ -20,11 +20,13 @@ These rules apply to every agent working in this repository. `CONTRIBUTING.md` h
 
 - Work on a `feat/*`, `fix/*` or `chore/*` branch cut from `dev`, and open a pull request into `dev`, the default branch. Never push to `dev` or `main` directly; rulesets reject it.
 - Pull request titles are Conventional Commits. Each pull request carries one label (`feature`, `fix` or `chore`) and follows `.github/pull_request_template.md`.
-- An issue is linked to and closed by the pull request that makes the change:
-  - a pull request into `dev` puts `Closes #N` in its body;
-  - the release pull request from `dev` into `main` lists the issues it ships without closing keywords;
-  - a hotfix pull request into `main` cannot close by keyword, so link the issue in the pull request's Development sidebar before merging.
-- Never close an issue by hand unless the issue already lists its fixing pull request as linked. A comment or a cross-reference is not a link.
+- Issue tracking: every change starts with an issue and ends with the pull request that closes it.
+  - Open an issue before starting any work. Do not cut a branch or write code without one.
+  - Each pull request matches exactly one issue. Extra work gets its own issue and pull request.
+  - A pull request into `dev` puts `Closes #N` in its body.
+  - A hotfix pull request into `main` cannot close by keyword, so link the issue in the pull request's Development sidebar before merging.
+  - The release pull request from `dev` into `main` is the only one without its own issue. It lists the issues it ships without closing keywords.
+  - Never close an issue by hand unless the issue already lists its fixing pull request as linked. A comment or a cross-reference is not a link.
 - Run focused tests for the files you change. CI runs the full suite. Never merge on red CI, and never use `git commit --no-verify`.
 - Migrations only add tables, columns or indexes. Dropping or renaming takes two releases.
 - Staging deploys automatically from `dev`. Production deploys only from a `vX.Y.Z` tag on `main`, after the owner approves in the `production` environment. Never deploy production by hand with `wrangler deploy`.
