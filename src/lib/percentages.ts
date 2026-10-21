@@ -37,3 +37,30 @@ export function canNormalizePercentages(percentages: Record<string, number>): bo
   return values.length > 0 && values.every(value => Number.isFinite(value) && value >= 0)
     && Number.isFinite(total) && total > 0;
 }
+
+/**
+ * Pre-tax item amounts act as weights: the bill total, including tax and tip,
+ * is split in the same proportion. Blank entries count as zero.
+ */
+export function amountWeightsError(cents: Record<string, number>): string | null {
+  const values = Object.values(cents);
+  if (!values.length || values.some(value => !Number.isSafeInteger(value) || value < 0)) {
+    return 'Enter an amount of zero or more for each member.';
+  }
+  return values.some(value => value > 0) ? null : 'Enter at least one amount above zero.';
+}
+
+export function percentagesFromAmounts(cents: Record<string, number>): Record<string, number> {
+  const ids = Object.keys(cents);
+  const total = ids.reduce((sum, id) => sum + cents[id], 0);
+  const out = Object.fromEntries(ids.map(id => [id, (cents[id] * 100) / total]));
+  // Give float drift to the largest weight so the total stays at exactly 100.
+  const largest = ids.reduce((best, id) => (cents[id] > cents[best] ? id : best));
+  out[largest] = 100 - ids.reduce((sum, id) => (id === largest ? sum : sum + out[id]), 0);
+  return out;
+}
+
+/** Display only: splits saved from amounts carry long fractions. */
+export function formatPercentage(value: number): string {
+  return `${Number(value.toFixed(2))}%`;
+}

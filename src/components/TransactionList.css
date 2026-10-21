@@ -125,3 +125,9 @@
 
 .compact-ledger .ledger-bulk-actions{margin-left:auto}
 .compact-ledger .ledger-bulk-actions>button[aria-label="Clear selection"]{background:transparent;border-color:transparent;color:#cbd5e1}
+.compact-ledger .ledger-allocation-mode{display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:8px;background:#f1f5f9}
+.compact-ledger .ledger-allocation-mode button{min-height:32px;border-radius:6px;color:#475569;font-size:var(--font-size-body2)}
+.compact-ledger .ledger-allocation-mode button[aria-pressed="true"]{background:white;color:#0f172a;font-weight:600;box-shadow:0 1px 2px #0f172a1f}
+.compact-ledger .ledger-allocation-hint{font-size:var(--font-size-body2);line-height:var(--line-height-body2);color:#64748b}
+.compact-ledger .ledger-allocation-share{color:#7c3aed;font-weight:600}
+@media(pointer:coarse){.compact-ledger .ledger-allocation-mode button{min-height:44px}}

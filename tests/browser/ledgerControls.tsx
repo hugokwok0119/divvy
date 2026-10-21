@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import TransactionList from '../../src/components/TransactionList';
 import { api } from '../../src/lib/api';
-import type { Transaction, QueueItem, Member } from '../../src/types';
+import type { Transaction, QueueItem, Member, TxPatch } from '../../src/types';
 import '../../src/index.css';
 
 if (new URLSearchParams(location.search).has('zoom')) document.documentElement.style.zoom = '2';
@@ -31,6 +31,7 @@ const assert = (value: unknown, message: string) => { if (!value) throw new Erro
 const tick = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 const output: string[] = [];
 const allocationWrites: string[] = [];
+const splitWrites: Array<TxPatch['splitRule']> = [];
 const starCalls: Array<{ id: string; starred: boolean; revision: number }> = [];
 const breakdownWrites: string[] = [];
 const deletionCalls: Array<{ kind: string; ids: string[]; revisions: Record<string, number> }> = [];
@@ -66,7 +67,7 @@ function Fixture({ readOnly = false, refund = false, five = false, edited = fals
     onQueueDeleteMany={async (ids, revisions) => deleteFixture('bulk', ids, revisions)}
     onApprove={async () => transaction}
     onQueueUpdate={async (_id, patch, revision) => {
-      allocationWrites.push('pending'); if (!demo) return queued;
+      allocationWrites.push('pending'); splitWrites.push(patch.splitRule); if (!demo) return queued;
       const { splitRule, isDuplicate, ...fields } = patch;
       const next = { ...demoQueue, ...fields, revision: revision + 1,
         ...(splitRule !== undefined ? { splitRuleJson: splitRule === null ? null : JSON.stringify(splitRule) } : {}),
@@ -74,7 +75,7 @@ function Fixture({ readOnly = false, refund = false, five = false, edited = fals
       setDemoQueue(next); return next;
     }}
     onUpdate={async (_id, patch, revision) => {
-      allocationWrites.push('approved'); if (patch.isStarred !== undefined) starCalls.push({ id: _id, starred: patch.isStarred, revision }); if (!demo) return transaction;
+      allocationWrites.push('approved'); splitWrites.push(patch.splitRule); if (patch.isStarred !== undefined) starCalls.push({ id: _id, starred: patch.isStarred, revision }); if (!demo) return transaction;
       const { splitRule, isStarred, ...fields } = patch;
       const next = { ...demoTransaction, ...fields, revision: revision + 1,
         ...(splitRule !== undefined ? { splitRuleJson: splitRule === null ? null : JSON.stringify(splitRule) } : {}),
@@ -320,6 +321,25 @@ await check('custom allocation tooltip shows saved percentages on keyboard focus
   const trigger = buttons('Custom split for A long grocery store label')[0]; trigger.focus(); await tick();
   const tooltip = trigger.querySelector('[role="tooltip"]')!;
   assert(getComputedStyle(tooltip).visibility === 'visible' && tooltip.textContent?.includes('60%') && tooltip.textContent?.includes('40%'), 'Visible allocation tooltip missing');
+});
+await check('custom split by item amounts previews the full bill and saves proportional percentages', async () => {
+  await click('Custom split for A long grocery store label'); await click('Item amounts ($)');
+  const dialog = host.querySelector('dialog') as HTMLDialogElement;
+  assert(!field('Alex percentage') && field('Alex amount').value === '', 'Amount mode did not replace percentage fields');
+  await change('Alex amount', '40'); await change('Sam with a long household name amount', '25');
+  assert(dialog.textContent?.includes('Subtotal$65.00'), 'Amount mode subtotal missing');
+  // $12345.67 split 40:25.
+  assert(dialog.textContent?.includes('pays $7597.34') && dialog.textContent?.includes('pays $4748.33'), 'Amount mode share preview missing');
+  await click('Percentage (%)'); assert(field('Alex percentage').value === '60', 'Switching back lost percentages');
+  await click('Item amounts ($)'); assert(field('Alex amount').value === '40', 'Switching modes lost amounts');
+  await change('Alex amount', '-5');
+  flushSync(() => field('Alex amount').dispatchEvent(new FocusEvent('focusout', { bubbles: true }))); await tick();
+  assert(buttons('Save allocation')[0].disabled && dialog.querySelector('[role="alert"]'), 'Amount mode accepted a negative amount');
+  await change('Alex amount', '40'); await click('Save allocation');
+  if (buttons('Save changes').length) await click('Save changes');
+  await tick();
+  const percentages = splitWrites.at(-1)?.percentages;
+  assert(percentages && Math.abs(percentages.m1 - 4000 / 65) < 1e-9 && percentages.m1 + percentages.m2 === 100, `Wrong saved percentages: ${JSON.stringify(percentages)}`);
 });
 for (const stage of ['pending', 'approved'] as const) for (const dismissal of ['Close custom split', 'Cancel allocation', 'Escape', 'outside']) await check(`${stage} custom modal ${dismissal} discards only allocation drafts without saving`, async () => {
   flushSync(() => mode(stage)); await tick(); await change('Store', 'Merchant draft');

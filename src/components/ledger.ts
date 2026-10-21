@@ -1,6 +1,6 @@
 import type { QueueItem, Transaction, QueueItemInput, SplitRule, TxPatch, ExpenseHistoryEvent } from '../types';
 import { formatCents, formatCentsWithSymbol, parseAmountToCents, MAX_AMOUNT_CENTS } from '../lib/money';
-import { canNormalizePercentages, customPercentagesError, sameSplitRule } from '../lib/percentages';
+import { canNormalizePercentages, customPercentagesError, formatPercentage, sameSplitRule } from '../lib/percentages';
 import { normalizeMerchantName } from '../lib/category';
 
 export type LedgerRow =
@@ -14,7 +14,13 @@ export interface ExpenseDraft {
   cardId: string;
   splitType: string;
   splitRule: SplitRule | null;
-  customAllocation?: { percentages: Record<string, string>; finished?: boolean };
+  customAllocation?: {
+    percentages: Record<string, string>;
+    /** Pre-tax amounts per member; the full bill is split in their proportion. */
+    amounts?: Record<string, string>;
+    mode?: 'percent' | 'amount';
+    finished?: boolean;
+  };
 }
 export function draftFrom(item: QueueItem | Transaction): ExpenseDraft {
   let splitRule: SplitRule | null = null;
@@ -145,7 +151,7 @@ export function expenseDifferences(
       const parts = Object.entries(allocation).map(([id, amount]) => {
         if (typeof amount !== 'number' || !Number.isFinite(amount)
           || (key === 'splitSharesJson' ? !Number.isSafeInteger(amount) : amount < 0 || amount > 100)) return null;
-        return `${names[id] ?? 'Former member'} ${key === 'splitSharesJson' ? formatCentsWithSymbol(amount) : `${amount}%`}`;
+        return `${names[id] ?? 'Former member'} ${key === 'splitSharesJson' ? formatCentsWithSymbol(amount) : formatPercentage(amount)}`;
       });
       return parts.includes(null) ? 'Allocation unavailable' : parts.join(' · ') || 'Not set';
     }
