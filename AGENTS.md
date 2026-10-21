@@ -27,5 +27,5 @@ These rules apply to every agent working in this repository. `CONTRIBUTING.md` h
 - Never close an issue by hand unless the issue already lists its fixing pull request as linked. A comment or a cross-reference is not a link.
 - Run focused tests for the files you change. CI runs the full suite. Never merge on red CI, and never use `git commit --no-verify`.
 - Migrations only add tables, columns or indexes. Dropping or renaming takes two releases.
-- Staging deploys automatically from `dev`. Production deploys only from a `vX.Y.Z` tag on `main`, after the owner approves in the `production` environment. Never deploy production by hand with `npm run deploy` or `wrangler deploy`.
+- Staging deploys automatically from `dev`. Production deploys only from a `vX.Y.Z` tag on `main`, after the owner approves in the `production` environment. Never deploy production by hand with `wrangler deploy`.
 - Never print, commit or paste secrets. `.dev.vars*` files are gitignored and stay local.
