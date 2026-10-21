@@ -24,12 +24,12 @@ moved or deleted.
   a shared history.
 - Each pull request carries one label: `feature`, `fix` or `chore`. The label decides where the
   change appears in the release notes.
-- Issues are linked and closed by pull requests, never by hand. GitHub links and closes an issue
-  only from a pull request into the default branch (`main`), so:
-  - a pull request into `dev` names its issue with `Refs #N`;
-  - the release pull request into `main` lists `Closes #N` for every issue it ships, which links
-    each issue to the release and closes it on merge;
-  - a hotfix pull request into `main` uses `Closes #N` directly.
+- An issue is linked to and closed by the pull request that makes the change, never by hand.
+  GitHub reads `Closes #N` only on pull requests into the default branch, which is `dev`, so:
+  - a pull request into `dev` uses `Closes #N`;
+  - the release pull request into `main` lists the issues it ships without closing keywords;
+  - a hotfix pull request into `main` cannot close by keyword: link the issue from the pull
+    request's **Development** sidebar before merging.
 - The owner reviews and merges every pull request.
 
 ## Tests
