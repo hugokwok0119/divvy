@@ -1,6 +1,7 @@
 # Divvy
 
-<!-- badges -->
+[![ci](https://github.com/hugokwok0119/divvy/actions/workflows/ci.yml/badge.svg)](https://github.com/hugokwok0119/divvy/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/hugokwok0119/divvy)](https://github.com/hugokwok0119/divvy/releases)
 
 Divvy is a household expense-splitting app. Members import credit-card statements or CSV
 exports, review each expense together, and settle up at the end of a monthly cycle. An AI model
@@ -57,7 +58,18 @@ npm run dev
 
 Vite serves the app on <http://localhost:3000> and forwards `/api` to the Worker on port 8787.
 
-<!-- seed -->
+### Sign in locally without Google
+
+Seed the local database with a fictional household and print a login cookie:
+
+```bash
+npm run seed:local
+```
+
+Open <http://localhost:8787> (or <http://localhost:3000> with `npm run dev`), open the browser
+console, paste the printed `document.cookie=...` line and reload. `seed:local` wipes the app
+tables in your local database before filling them. `npm run seed:staging` does the same for the
+staging database and reads its secret from `.dev.vars.staging`. There is no production option.
 
 ## Tests
 

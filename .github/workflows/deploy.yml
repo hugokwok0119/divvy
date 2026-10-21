@@ -1,0 +1,90 @@
+name: deploy
+
+on:
+  push:
+    branches: [dev]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  staging:
+    if: github.ref == 'refs/heads/dev'
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci && npm run build
+      # A failed migration fails this step, so the deploy below never runs.
+      - run: npx wrangler d1 migrations apply divvy-staging --env staging --remote
+      - run: npx wrangler deploy --env staging
+      - run: curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://divvy-staging.hugohhkwok.workers.dev/ -o /dev/null
+
+  # Runs before the approval prompt, so a tag that is not on main never asks for approval.
+  check-tag:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+  production:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ci, check-tag]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Record a D1 restore point
+        run: echo "BOOKMARK=$(npx wrangler d1 time-travel info divvy --json | jq -r .bookmark)" >> "$GITHUB_ENV"
+      # A failed migration fails this step, so the deploy below never runs.
+      - run: npx wrangler d1 migrations apply divvy --remote
+      - name: Deploy
+        run: |
+          npx wrangler deploy --tag "$GITHUB_REF_NAME" --message "release $GITHUB_REF_NAME" | tee deploy.log
+          echo "VERSION_ID=$(grep -oE 'Current Version ID: [0-9a-f-]+' deploy.log | cut -d' ' -f4)" >> "$GITHUB_ENV"
+      - run: curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://divvy.hugohhkwok.workers.dev/ -o /dev/null
+      - name: Publish the release
+        run: |
+          PREVIOUS=$(git describe --tags --abbrev=0 "$GITHUB_SHA^")
+          cat > notes.md <<EOF
+          ### Fallback
+
+          - Worker version: \`$VERSION_ID\`
+          - D1 bookmark before this release's migrations: \`$BOOKMARK\`
+          - Previous release: $PREVIOUS
+
+          Roll back code with \`npx wrangler rollback <previous version id>\`; restore data with \`npx wrangler d1 time-travel restore divvy --bookmark=$BOOKMARK\`.
+          EOF
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes --notes-file notes.md
