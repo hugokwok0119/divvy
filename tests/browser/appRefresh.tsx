@@ -134,4 +134,21 @@ for (const error of [new Error('Bootstrap failed'), new ApiError(401, 'Signed ou
     assert(!view.host.textContent?.includes('Bootstrap failed'), 'Successful refresh must clear the prior error');
   });
 }
+await check('group_required on refresh shows the choose screen with the switcher open', async (view) => {
+  view.focus(); await waitFor(() => view.requests.length === 1, 'Focus refresh did not start');
+  view.requests[0].reject(new ApiError(400, 'Choose a group', 'group_required'));
+  await waitFor(() => !!view.host.querySelector('[role="menu"]'), 'Switcher did not open');
+  assert(view.host.querySelector('h1')?.textContent === 'Choose a group', 'Choose screen must replace the ledger');
+  assert(view.host.querySelector('#group-switcher')?.getAttribute('aria-expanded') === 'true', 'Switcher button must report open');
+  assert(view.host.querySelector('[role="menuitemradio"]')?.textContent?.includes('Test household'), 'Menu must list the groups');
+});
+await check('a failed group reload keeps the app and the cached list', async (view) => {
+  await waitFor(() => !!view.host.querySelector('#group-switcher'), 'Header switcher missing');
+  api.groups = () => Promise.reject(new Error('Groups offline'));
+  flushSync(() => view.host.querySelector<HTMLButtonElement>('#group-switcher')!.click());
+  await tick(); await tick();
+  assert(!view.host.textContent?.includes('Groups offline'), 'Failed reload must not show the error screen');
+  assert(view.dates().length === 2, 'Ledger must stay mounted');
+  assert(view.host.querySelector('[role="menuitemradio"]')?.textContent?.includes('Test household'), 'Menu must keep the cached list');
+});
 document.getElementById('result')!.textContent = `${results.filter((result) => result.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;
