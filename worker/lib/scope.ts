@@ -27,6 +27,7 @@ import { normalizeMerchantName } from '../../src/lib/category';
 import { isDuplicateMatch } from '../../src/lib/duplicates';
 import { canonicalCategory } from '../../src/constants';
 import { closedCycleCard } from '../../src/lib/money';
+import { todayIn } from '../../src/lib/reminders';
 import { checkAndIncrement, DAILY_AI_LIMIT } from './ratelimit';
 
 export interface OwnershipRefs {
@@ -1232,8 +1233,7 @@ export class ScopedRepository {
   async checkAiQuota(usageDate: string, limit = DAILY_AI_LIMIT): Promise<boolean> {
     // Group first, so a group past its own cap does not spend the shared allowance.
     if (!await checkAndIncrement(this.db, this.householdId, usageDate, limit)) return false;
-    const pacificDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver' }).format(new Date());
-    return checkAndIncrement(this.db, 'all', pacificDate, DAILY_AI_LIMIT);
+    return checkAndIncrement(this.db, 'all', todayIn('America/Vancouver'), DAILY_AI_LIMIT);
   }
 
   /** Full dump for the Download my data button. Auth tables are never included. */
