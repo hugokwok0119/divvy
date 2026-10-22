@@ -113,6 +113,12 @@ const App: React.FC = () => {
     return { minDate: dates[0], maxDate: dates[dates.length - 1] };
   }, [data]);
 
+  // Infinity: an open cycle never takes a card's retrospective history label.
+  const currentCycleDefault = useMemo(
+    () => (data ? cycleName(null, cycleGroupsOf(data.transactions), Infinity, data.members, data.cards) : ''),
+    [data],
+  );
+
   // The dashboard balance is over every active transaction, not the current
   // filter view: filters only decide what a "Close Cycle" click would claim.
   const settlement: Settlement = useMemo(() => {
@@ -365,8 +371,7 @@ const App: React.FC = () => {
                 <span className="text-body2 text-slate-500">Current cycle</span>
                 <CycleName
                   name={data.household.currentCycleName}
-                  // Infinity: an open cycle never takes a card's retrospective history label.
-                  defaultName={cycleName(null, cycleGroupsOf(data.transactions), Infinity, data.members, data.cards)}
+                  defaultName={currentCycleDefault}
                   label="current cycle"
                   onSave={async (name) => { await api.renameCycle('current', name); await refresh(); }}
                 />
