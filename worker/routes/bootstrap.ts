@@ -24,6 +24,7 @@ bootstrap.get('/', async (c) => {
       timezone: household.timezone,
       customCategories: JSON.parse(household.customCategoriesJson),
       currentCycleName: household.currentCycleName,
+      rentReminder: household.rentReminder === 1,
     },
     members, cards, transactions, queue, cycles,
     categoryPreferences: prefs,

@@ -135,6 +135,7 @@ export interface Bootstrap {
     id: string; name: string; currencyCode: string; timezone: string;
     customCategories: string[];
     currentCycleName: string | null;
+    rentReminder: boolean;
   };
   members: Member[];
   cards: Card[];

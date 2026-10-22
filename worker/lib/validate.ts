@@ -591,6 +591,10 @@ export function validateHouseholdPatch(body: unknown): { value: Record<string, u
       fields.allowedEmails = 'Expected an array of { email, memberId }';
     } else value.allowedEmails = list;
   }
+  if ('rentReminder' in body) {
+    if (typeof body.rentReminder !== 'boolean') fields.rentReminder = 'Expected true or false';
+    else value.rentReminder = body.rentReminder;
+  }
 
   if (Object.keys(fields).length > 0) return { value: null, fields };
   return { value, fields: {} };

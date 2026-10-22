@@ -13,6 +13,7 @@ interface Props {
   members: Member[];
   cards: Card[];
   customCategories: string[];
+  rentReminder: boolean;
   role: Role;
   onBack: () => void;
   onChanged: () => Promise<void>;
@@ -21,7 +22,7 @@ interface Props {
 
 const gripButton = 'inline-flex h-7 w-7 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing';
 
-const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role, onBack, onChanged, showToast }) => {
+const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentReminder, role, onBack, onChanged, showToast }) => {
   const perms = permissionsFor(role);
   const [newCategory, setNewCategory] = useState('');
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
@@ -444,6 +445,28 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
                   <span className="text-slate-400 text-sm italic">No custom categories added yet.</span>
                 )}
               </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-heading2 text-slate-800">Reminders</h3>
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+              <label className="flex min-h-11 items-center gap-3 text-body1 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={rentReminder}
+                  disabled={role !== 'owner'}
+                  onChange={(e) => void withErrorToast(
+                    () => api.updateHousehold({ rentReminder: e.target.checked }).then(() => undefined),
+                    'Could not save the rent reminder.',
+                  )}
+                  className="h-5 w-5 accent-blue-600"
+                />
+                Remind me about rent at month end
+              </label>
+              {role !== 'owner' && (
+                <p className="text-body2 text-slate-400 italic">Only the household owner can change reminders.</p>
+              )}
             </div>
           </section>
         </div>

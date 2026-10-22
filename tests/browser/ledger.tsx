@@ -69,6 +69,7 @@ const initial: Bootstrap = {
     timezone: 'America/Vancouver',
     customCategories: [],
     currentCycleName: null,
+    rentReminder: true,
   },
   members: [
     {

@@ -339,7 +339,7 @@ const App: React.FC = () => {
                 import, ledger, then the summary rendered after the ledger. */}
             <aside aria-label="This month" className={`flex flex-col gap-4 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky ${demo ? 'lg:top-[8.5rem]' : 'lg:top-20'} lg:self-start ${demo ? 'lg:max-h-[calc(100dvh-10.5rem)]' : 'lg:max-h-[calc(100dvh-7rem)]'}`}>
               <div className="flex min-h-0 flex-col">
-                <ReminderCalendar cards={data.cards} members={data.members} timezone={data.household.timezone} />
+                <ReminderCalendar cards={data.cards} members={data.members} timezone={data.household.timezone} rentReminder={data.household.rentReminder} />
               </div>
               <div className="hidden shrink-0 lg:block">
                 <SettlementSummary
@@ -456,6 +456,7 @@ const App: React.FC = () => {
             members={data.members}
             cards={data.cards}
             customCategories={data.household.customCategories}
+            rentReminder={data.household.rentReminder}
             role={data.me.role}
             onBack={() => setCurrentView('dashboard')}
             onChanged={refresh}
