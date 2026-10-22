@@ -95,7 +95,8 @@ app.get('*', (c) => {
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
-    return c.json({ error: err.message }, err.status);
+    // A thrown HTTPException may carry its own body, such as a machine-readable reason.
+    return err.res ?? c.json({ error: err.message }, err.status);
   }
   console.error(err);
   return c.json({ error: 'Internal error' }, 500);
