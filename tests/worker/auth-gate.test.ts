@@ -48,6 +48,41 @@ describe('resolveSignIn', () => {
     const r = await resolveSignIn(db(), 'SAM@Example.COM', 'owner@example.com');
     expect(r.allowed).toBe(true);
   });
+
+  it('finds an allowlisted email in the second household', async () => {
+    await db().insert(households).values([
+      { id: 'h1', name: 'Home', createdAt: 1 },
+      { id: 'h2', name: 'Trip', createdAt: 2, allowedEmailsJson: JSON.stringify([{ email: 'yuki@x', memberId: 'm-yuki' }]) },
+    ]);
+    expect(await resolveSignIn(db(), ' Yuki@X ', 'owner@example.com')).toEqual({ allowed: true, memberId: 'm-yuki' });
+  });
+
+  describe('with more than one household', () => {
+    // h2 is inserted first so the earliest household is not the first row stored.
+    beforeEach(async () => {
+      await db().insert(households).values([
+        { id: 'h2', name: 'Trip', createdAt: 2, allowedEmailsJson: JSON.stringify([{ email: 'yuki@x', memberId: 'm-yuki' }]) },
+        { id: 'h1', name: 'Home', createdAt: 1 },
+      ]);
+      await db().insert(householdMembers).values([
+        { id: 'm-own2', householdId: 'h2', displayName: 'Owner', role: 'owner', createdAt: 0 },
+        { id: 'm-own1', householdId: 'h1', displayName: 'Owner', role: 'owner', createdAt: 0 },
+      ]);
+    });
+
+    it('links the owner to the owner member of the earliest household', async () => {
+      expect(await resolveSignIn(db(), 'owner@example.com', 'owner@example.com')).toEqual({ allowed: true, memberId: 'm-own1' });
+    });
+
+    it('does not relink an owner member that already has an account', async () => {
+      await db().insert(memberAccounts).values({ memberId: 'm-own1', householdId: 'h1', userId: 'u-owner', linkedAt: 0 });
+      expect(await resolveSignIn(db(), 'owner@example.com', 'owner@example.com')).toEqual({ allowed: true });
+    });
+
+    it('still refuses an unknown email', async () => {
+      expect(await resolveSignIn(db(), 'stranger@example.com', 'owner@example.com')).toEqual({ allowed: false });
+    });
+  });
 });
 
 describe('linkUserToMember', () => {
@@ -71,5 +106,16 @@ describe('linkUserToMember', () => {
     await expect(linkUserToMember(db(), 'u2', 'm1')).rejects.toThrow();
     const rows = await db().select().from(householdMembers);
     expect(rows[0].userId).toBe('u1');
+    expect(await db().select({ memberId: memberAccounts.memberId, userId: memberAccounts.userId })
+      .from(memberAccounts)).toEqual([{ memberId: 'm1', userId: 'u1' }]);
+  });
+
+  it('never relinks a member slot linked only through member_accounts', async () => {
+    await db().insert(memberAccounts).values({ memberId: 'm1', householdId: 'h1', userId: 'u1', linkedAt: 0 });
+    await expect(linkUserToMember(db(), 'u2', 'm1')).rejects.toThrow();
+    const rows = await db().select().from(householdMembers);
+    expect(rows[0].userId).toBeNull();
+    expect(await db().select({ memberId: memberAccounts.memberId, userId: memberAccounts.userId })
+      .from(memberAccounts)).toEqual([{ memberId: 'm1', userId: 'u1' }]);
   });
 });

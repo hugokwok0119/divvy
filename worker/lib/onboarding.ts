@@ -1,6 +1,6 @@
-import { eq, isNull, and } from 'drizzle-orm';
+import { eq, isNull, and, notExists, sql } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
-import { households, householdMembers } from '../db/schema';
+import { households, householdMembers, memberAccounts } from '../db/schema';
 
 export interface AllowlistEntry {
   email: string;
@@ -20,20 +20,24 @@ export async function resolveSignIn(
     return { allowed: normalized === ownerEmail.trim().toLowerCase() };
   }
 
-  const allowlist: AllowlistEntry[] = JSON.parse(rows[0].allowedEmailsJson);
-  const hit = allowlist.find((e) => e.email.trim().toLowerCase() === normalized);
-  if (hit) return { allowed: true, memberId: hit.memberId };
+  const hits = await db
+    .select({ memberId: sql<string>`json_extract(entry.value, '$.memberId')` })
+    .from(sql`${households}, json_each(${households.allowedEmailsJson}) entry`)
+    .where(sql`lower(trim(json_extract(entry.value, '$.email'))) = ${normalized}`)
+    .orderBy(households.createdAt, households.id)
+    .limit(1);
+  if (hits[0]) return { allowed: true, memberId: hits[0].memberId };
 
   if (normalized === ownerEmail.trim().toLowerCase()) {
     const ownerRows = await db
-      .select({ memberId: householdMembers.id })
+      .select({ memberId: householdMembers.id, linked: memberAccounts.memberId })
       .from(householdMembers)
-      .where(and(
-        eq(householdMembers.householdId, rows[0].id),
-        eq(householdMembers.role, 'owner'),
-      ))
+      .innerJoin(households, eq(households.id, householdMembers.householdId))
+      .leftJoin(memberAccounts, eq(memberAccounts.memberId, householdMembers.id))
+      .where(eq(householdMembers.role, 'owner'))
+      .orderBy(households.createdAt, households.id)
       .limit(1);
-    return ownerRows[0]
+    return ownerRows[0] && ownerRows[0].linked === null
       ? { allowed: true, memberId: ownerRows[0].memberId }
       : { allowed: true };
   }
@@ -49,7 +53,11 @@ export async function linkUserToMember(
   const result = await db
     .update(householdMembers)
     .set({ userId })
-    .where(and(eq(householdMembers.id, memberId), isNull(householdMembers.userId)));
+    .where(and(
+      eq(householdMembers.id, memberId),
+      isNull(householdMembers.userId),
+      notExists(db.select().from(memberAccounts).where(eq(memberAccounts.memberId, householdMembers.id))),
+    ));
 
   // D1 counts the mirror_member_account_update trigger's insert too, so success can report 2.
   if (result.meta.changes === 0) {
