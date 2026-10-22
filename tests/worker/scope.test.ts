@@ -240,6 +240,37 @@ describe('requireScope group choice', () => {
     expect(await res.text()).toBe('No household membership');
   });
 
+  it('treats an empty group value as no group named', async () => {
+    await linkSecondGroup();
+    for (const res of [await probe('/probe', { 'x-divvy-group': '' }), await probe('/probe?group=')]) {
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: 'Choose a group', reason: 'group_required' });
+    }
+  });
+
+  it('uses the only active group when the other link is archived', async () => {
+    await db().update(householdMembers).set({ archivedAt: 5 }).where(eq(householdMembers.id, 'm1'));
+    await linkSecondGroup();
+    const res = await probe('/probe');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ householdId: 'h2', memberId: 'm9' });
+  });
+
+  it('refuses an account whose only link is archived', async () => {
+    await db().update(householdMembers).set({ archivedAt: 5 }).where(eq(householdMembers.id, 'm1'));
+    const res = await probe('/probe');
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe('Removed from this household');
+  });
+
+  it('refuses an archived link even when its group is named', async () => {
+    await db().update(householdMembers).set({ archivedAt: 5 }).where(eq(householdMembers.id, 'm1'));
+    await linkSecondGroup();
+    const res = await probe('/probe', { 'x-divvy-group': 'h1' });
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe('Removed from this household');
+  });
+
   it('resolves the scope once per request', async () => {
     const res = await probe('/probe-twice');
     expect(await res.json()).toEqual({ same: true });

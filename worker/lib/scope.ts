@@ -1268,9 +1268,9 @@ function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: st
   return allowlist.some((e) => e.email.trim().toLowerCase() === normalized);
 }
 
-/** The group the client names for this request, if any. */
+/** The group the client names for this request, if any. An empty value names none. */
 function requestedGroup(c: Context<{ Bindings: Env }>): string | undefined {
-  return c.req.header('x-divvy-group') ?? c.req.query('group');
+  return c.req.header('x-divvy-group') || c.req.query('group') || undefined;
 }
 
 // The /api/* middleware and then the handler both call requireScope; one
@@ -1299,10 +1299,12 @@ async function resolveScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
       eq(memberAccounts.userId, session.user.id),
       group === undefined ? undefined : eq(memberAccounts.householdId, group),
     ))
+    // Active links first: two rows that are both active mean the caller must choose.
+    .orderBy(sql`${householdMembers.archivedAt} is not null`)
     .limit(2);
 
   if (rows.length === 0) throw new HTTPException(403, { message: 'No household membership' });
-  if (rows.length > 1) {
+  if (rows.filter((r) => r.archivedAt === null).length > 1) {
     throw new HTTPException(400, {
       res: Response.json({ error: 'Choose a group', reason: 'group_required' }, { status: 400 }),
     });
