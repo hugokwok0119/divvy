@@ -28,12 +28,14 @@ function mount({ cards = [card], members: people = members, customCategories = [
   const previews: unknown[] = [];
   let release: (() => void) | null = null;
   const deleted: string[] = [];
+  const removedMembers: string[] = [];
   const cardOrders: string[][] = [];
   const memberOrders: string[][] = [];
   const households: unknown[] = [];
   const toasts: string[] = [];
   let releaseDelete: (() => void) | null = null;
   api.deleteCard = async (id) => { deleted.push(id); await new Promise<void>((resolve) => { releaseDelete = resolve; }); };
+  api.deleteMember = async (id) => { removedMembers.push(id); };
   api.reorderCards = async (ids) => { cardOrders.push(ids); };
   api.reorderMembers = async (ids) => { memberOrders.push(ids); };
   api.updateHousehold = async (patch) => { households.push(patch); return patch; };
@@ -49,7 +51,7 @@ function mount({ cards = [card], members: people = members, customCategories = [
   const choice = (title: string) => [...host.querySelectorAll('[role="radiogroup"] label')].find((l) => l.textContent?.includes(title))?.querySelector('input') as unknown as HTMLInputElement | undefined;
   const button = (text: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text);
   return {
-    host, saved, previews, deleted, cardOrders, memberOrders, households, toasts,
+    host, saved, previews, deleted, removedMembers, cardOrders, memberOrders, households, toasts,
     finishDelete: () => releaseDelete?.(),
     name: () => host.querySelector<HTMLInputElement>('#card-name-c1')!,
     day: () => host.querySelector('select[aria-label="Ends on for Amex"]') as unknown as HTMLSelectElement,
@@ -149,6 +151,22 @@ await check('confirmed delete sends once and blocks dismissal while deleting', a
   assert(view.dialog()?.open, 'Dismissed while deleting');
   view.finishDelete(); await flush(); await flush();
   assert(!view.dialog(), 'Dialog stayed open after delete');
+});
+await check('member added from Settings can be removed after confirming; cancel removes nothing', async (view) => {
+  const opener = handle(view, 'Remove member Hugo') as HTMLButtonElement;
+  assert(opener, 'Remove member button missing');
+  opener.focus(); view.click(opener); await flush();
+  assert(view.dialog()?.open && view.dialog()!.textContent!.includes('Remove Hugo?'), 'Remove confirmation did not open');
+  view.click(view.button('Cancel')); await flush();
+  assert(!view.dialog() && view.removedMembers.length === 0, 'Cancel removed');
+  assert(document.activeElement === opener, `Focus went to ${document.activeElement?.tagName}`);
+  view.click(opener); await flush();
+  view.click(view.button('Remove member')); await flush(); await flush();
+  assert(JSON.stringify(view.removedMembers) === '["m2"]', `Wrong removal ${JSON.stringify(view.removedMembers)}`);
+  assert(!view.dialog(), 'Dialog stayed open after removal');
+}, { members: [...members, hugo] });
+await check('the signed-in owner cannot remove themself', async (view) => {
+  assert(!handle(view, 'Remove member Alex'), 'Owner remove button shown');
 });
 await check('ArrowDown on a card handle saves the new card order', async (view) => {
   key(handle(view, 'Reorder card Amex'), 'ArrowDown'); await flush();
