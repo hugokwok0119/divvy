@@ -50,11 +50,18 @@ const App: React.FC = () => {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   // Bumped on focus so other groups' Pending sections refetch with the current one.
   const [sectionReloadKey, setSectionReloadKey] = useState(0);
-  // Reload on open so pending counts are fresh; a failed reload keeps the cached list.
+  // Only the newest reload applies, so a late one cannot bring back an emptied
+  // Pending section. A failed reload keeps the cached list.
+  const groupsRequest = useRef(0);
+  const reloadGroups = useCallback(() => {
+    const request = ++groupsRequest.current;
+    api.groups().then((list) => { if (request === groupsRequest.current) setGroupList(list); }, () => {});
+  }, []);
+  // Reload on open so pending counts are fresh.
   const openSwitcher = useCallback((open: boolean) => {
     setSwitcherOpen(open);
-    if (open) api.groups().then(setGroupList, () => {});
-  }, []);
+    if (open) reloadGroups();
+  }, [reloadGroups]);
 
   const refresh = useCallback(() => {
     // Each mutation waits for its own snapshot, after earlier refreshes finish.
@@ -105,12 +112,12 @@ const App: React.FC = () => {
       if (!(session || demo) || !currentGroupId()) return;
       void refresh();
       // Fresh counts also add a section for a group that gained Pending rows elsewhere.
-      api.groups().then(setGroupList, () => {});
+      reloadGroups();
       setSectionReloadKey((key) => key + 1);
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [session, demo, refresh]);
+  }, [session, demo, refresh, reloadGroups]);
 
   // Dashboard Filters
   const [filterDateStart, setFilterDateStart] = useState('');
@@ -296,6 +303,9 @@ const App: React.FC = () => {
   };
 
   // --- Groups ---
+  const otherPendingIds = data && groupList && ledgerTab === 'pending' ? pendingSectionIds(groupList.groups, data.household.id).slice(1) : [];
+  // The header only tells lists apart; alone it would repeat "Splitting with".
+  const groupHeaders = otherPendingIds.length > 0;
   const selectGroup = (id: string) => {
     setCurrentGroup(id);
     setChoosingGroup(false);
@@ -481,8 +491,8 @@ const App: React.FC = () => {
                 <button role="tab" aria-selected={ledgerTab === 'pending'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('pending')}>Pending ({data.queue.length})</button>
                 <button role="tab" aria-selected={ledgerTab === 'approved'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'approved' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('approved')}>Approved ({data.transactions.length})</button>
               </div>
-              <section aria-labelledby={ledgerTab === 'pending' ? `pending-group-${data.household.id}` : undefined}>
-              {ledgerTab === 'pending' && <GroupPendingHeader id={`pending-group-${data.household.id}`} name={data.household.name} members={data.members} />}
+              <section aria-labelledby={groupHeaders ? `pending-group-${data.household.id}` : undefined}>
+              {groupHeaders && <GroupPendingHeader id={`pending-group-${data.household.id}`} name={data.household.name} members={data.members} />}
               <TransactionList
                 transactions={data.transactions}
                 pendingItems={data.queue}
@@ -518,12 +528,12 @@ const App: React.FC = () => {
                 maxDate={maxDate}
               />
               </section>
-              {ledgerTab === 'pending' && groupList && pendingSectionIds(groupList.groups, data.household.id).slice(1).map((id) => (
+              {otherPendingIds.map((id) => (
                 <GroupPendingSection
                   key={id}
-                  group={groupList.groups.find((g) => g.id === id)!}
+                  group={groupList!.groups.find((g) => g.id === id)!}
                   reloadKey={sectionReloadKey}
-                  onChanged={() => { api.groups().then(setGroupList, () => {}); }}
+                  onChanged={reloadGroups}
                   showToast={showToast}
                 />
               ))}

@@ -38,8 +38,6 @@ interface Props {
   group: GroupSummary;
   reloadKey: number;
   onChanged(): void;
-  /** Task 13 adds the toolbar button that calls this. */
-  onSendToGroup?(rows: QueueItem[], fromGroupId: string): void;
   showToast: (message: string, type?: 'error' | 'success') => void;
 }
 
