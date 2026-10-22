@@ -119,8 +119,8 @@ describe('formatDateSpan', () => {
 describe('cycleGroupLabel', () => {
   const CLOSED = 2000;
   const members: Member[] = [
-    { id: 'm1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null },
-    { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: 1500 },
+    { id: 'm1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null },
+    { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: 1500, sittingOutAt: null },
   ];
   const card = (over: Partial<Card>): Card => ({
     id: 'c1', memberId: 'm1', name: 'Visa Infinite', archived: 0, sortOrder: 0, statementDay: 20,
@@ -173,8 +173,8 @@ describe('cycleGroupLabel', () => {
 
 describe('cycleName', () => {
   const members: Member[] = [
-    { id: 'm1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null },
-    { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null },
+    { id: 'm1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null },
+    { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null, sittingOutAt: null },
   ];
   const tx = (payerId: string, cardId: string | null, date: string) => ({ payerId, cardId, cardNameSnapshot: cardId && 'Visa', date });
 

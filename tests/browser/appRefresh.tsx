@@ -21,7 +21,7 @@ const row: QueueItem = {
 const initial: Bootstrap = {
   me: { memberId: 'm1', role: 'owner' },
   household: { id: 'h1', name: 'Test household', currencyCode: 'CAD', timezone: 'America/Vancouver', customCategories: [], currentCycleName: null, rentReminder: true },
-  members: [{ id: 'm1', displayName: 'Test user', role: 'owner', sortOrder: 0, archivedAt: null }],
+  members: [{ id: 'm1', displayName: 'Test user', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null }],
   cards: [], transactions: [], queue: [row, { ...row, id: 'q2', expenseId: 'expense-test-2', store: 'Lyft' }], cycles: [], categoryPreferences: {},
 };
 const assert = (condition: unknown, message: string) => { if (!condition) throw new Error(message); };

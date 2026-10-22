@@ -134,8 +134,8 @@ export function buildDemoData(samples: SampleResult[]): DemoState {
     b.date.localeCompare(a.date) || a.id.localeCompare(b.id);
 
   const members: Member[] = [
-    { id: DEMO_IDS.alex, displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null },
-    { id: DEMO_IDS.sam, displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null },
+    { id: DEMO_IDS.alex, displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null },
+    { id: DEMO_IDS.sam, displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null, sittingOutAt: null },
   ];
 
   const cycles: Cycle[] = [];

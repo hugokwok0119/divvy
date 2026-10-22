@@ -19,7 +19,7 @@ import type { Route } from './server';
 type QueueRow = QueueItem & { householdId?: string; createdAt?: number };
 type TxRow = Transaction & { householdId?: string; createdAt?: number; deletedAt?: number | null };
 
-interface QueueContext { state: DemoState; now: () => number; newId: () => string; roster: () => string[] }
+interface QueueContext { state: DemoState; now: () => number; newId: () => string; roster: () => string[]; splitRoster: () => string[] }
 
 // ledger-history.ts:32-34, changedExpenseFields.
 const editableFields = ['date', 'store', 'amountCents', 'category', 'payerId', 'cardId',
@@ -53,7 +53,7 @@ function assertCustomAllocation(splitType: string | null, splitRule: SplitRule |
   return false;
 }
 
-export function queueRoutes({ state, now, newId, roster }: QueueContext): Route[] {
+export function queueRoutes({ state, now, newId, roster, splitRoster }: QueueContext): Route[] {
   const actor = () => ({ memberId: state.bootstrap.me.memberId,
     displayName: state.bootstrap.members.find((m) => m.id === state.bootstrap.me.memberId)?.displayName ?? null });
   const body = (request: Request) => request.json().catch(() => null) as Promise<unknown>;
@@ -177,7 +177,7 @@ export function queueRoutes({ state, now, newId, roster }: QueueContext): Route[
       category: canonicalCategory(input.category), payerId: input.payerId, cardId: input.cardId,
       cardNameSnapshot: input.cardId ? state.bootstrap.cards.find((c) => c.id === input.cardId)?.name ?? null : null, splitType,
       splitRuleJson: unchangedCustom ? current.splitRuleJson : (splitRule ? JSON.stringify(splitRule) : null),
-      splitSharesJson: JSON.stringify(computeShares(input.amountCents, splitType, splitRule, roster())),
+      splitSharesJson: JSON.stringify(computeShares(input.amountCents, splitType, splitRule, splitType === 'equal' ? splitRoster() : roster())),
       isStarred: input.isStarred ? 1 : 0, favoriteName: input.favoriteName ?? null, deletedAt: null,
       ...attribution(current.revision + 1, current), source: current.source,
       hasBeenApproved: true, lastEditedAt: current.lastEditedAt, parentExpenseId: current.parentExpenseId,

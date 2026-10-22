@@ -78,6 +78,7 @@ const initial: Bootstrap = {
       role: 'owner',
       sortOrder: 0,
       archivedAt: null,
+      sittingOutAt: null,
     },
     {
       id: 'm2',
@@ -85,6 +86,7 @@ const initial: Bootstrap = {
       role: 'member',
       sortOrder: 1,
       archivedAt: null,
+      sittingOutAt: null,
     },
   ],
   cards: [{ id: 'c1', memberId: 'm1', name: 'Visa', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null }],
@@ -113,7 +115,7 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
     stored.transactions[0].splitType = 'custom';
     stored.transactions[0].splitRuleJson = JSON.stringify({ percentages: options.allocation });
   }
-  if (options.third) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null });
+  if (options.third) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null, sittingOutAt: null });
   if (options.archived) stored.members[1].archivedAt = 1;
   if (options.member) stored.me = { memberId: 'm2', role: 'member' };
   const closings: CloseCycleInput[] = [];

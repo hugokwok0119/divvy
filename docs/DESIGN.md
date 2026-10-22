@@ -55,7 +55,7 @@ All money is integer cents. Timestamps are epoch milliseconds.
 | Table | Holds |
 |---|---|
 | `households` | One household, shown to people as a group: name, currency (CAD), timezone (America/Vancouver), custom categories, sign-in allowlist, rent-reminder flag |
-| `household_members` | Participants, their role (`owner` or `member`), display order, and the linked user once they sign in |
+| `household_members` | Participants, their role (`owner` or `member`), display order, when they started sitting out (`sitting_out_at`, null while they are in), and the linked user once they sign in |
 | `member_accounts` | Links an account to a member slot, at most one slot per account in each group, so one account can belong to many groups. Triggers copy `household_members.user_id` into it until that column is dropped |
 | `cards` | Payment cards per member, with an optional statement day for reminders |
 | `transactions` | Approved expenses: date, store, amount, category, payer, card, split type and exact per-member shares |
@@ -74,7 +74,11 @@ unit-tested.
 
 - Splitting is exact. Shares come from integer division, and the remainder is handed out one
   cent at a time by the largest remainder method. Per-member shares always sum to the amount.
-- Split types are `equal` (across the roster), `custom` (percentages) and `single` (one member).
+- Split types are `equal` (across the members who are in), `custom` (percentages) and `single`
+  (one member). A member who sits out is left out of new equal splits, and a new custom split
+  starts them at 0%. Their existing shares and balance never change, and they still count in the
+  settlement. The owner toggles this with the Splitting with chips above the ledger, and at least
+  one member must stay in.
 - A member's balance is what they paid minus what they consumed, summed from the stored shares.
   Balances across the household sum to zero, and greedy matching of creditors and debtors turns
   them into a short list of transfers.
@@ -252,3 +256,9 @@ Each entry gives the date, the decision and the reason.
 20. **2026-10-22. The rent reminder is a per-group setting.** Existing households keep it on, because
     the migration adds `rent_reminder` with a default of 1. New groups start with it off, because a
     trip has no rent. The group owner turns it on or off in Settings, under Reminders.
+21. **2026-10-22. Sitting out is a flag that stays on across cycles.** `household_members.sitting_out_at`
+    holds when the member stepped out and is null while they are in. Closing or settling a cycle does
+    not reset it, so a member who is away for months is not split into each new cycle by accident.
+    The flag only changes how new equal splits spread; stored shares are never recomputed. Rejected:
+    a per-cycle roster, which needs a new table and a reset step at every close, and archiving the
+    member, which hides them from the payer and single-split controls.

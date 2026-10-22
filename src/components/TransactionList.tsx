@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import type { Transaction, QueueItem, QueueItemInput, Member, Card, TxPatch, ClosingSnapshot } from '../types';
 import { generateId } from '../constants';
-import { distributeByWeight } from '../lib/settlement';
+import { distributeByWeight, splitRosterOf } from '../lib/settlement';
 import { closedCycleCard, formatCents, formatCentsWithSymbol, parseAmountToCents } from '../lib/money';
 import { api, ApiError } from '../lib/api';
 import { amountWeightsError, customPercentagesError, formatPercentage, parsePercentageDraft, percentagesFromAmounts } from '../lib/percentages';
@@ -227,6 +227,7 @@ export default function TransactionList(props: TransactionListProps) {
   }, [!!bulkSplit]);
   useEffect(() => { if (!hasBulkSelection) setBulkSplit(null); }, [hasBulkSelection]);
   const activeMembers = members.filter((member) => !member.archivedAt);
+  const splitRoster = splitRosterOf(members);
   const rows: LedgerRow[] = useMemo(
     () =>
       mode === 'pending'
@@ -556,7 +557,7 @@ export default function TransactionList(props: TransactionListProps) {
       percentages: Object.fromEntries(Object.entries(
         draft.splitType === 'custom' && draft.splitRule?.percentages
           ? draft.splitRule.percentages
-          : Object.fromEntries(activeMembers.map(member => [member.id, 100 / (activeMembers.length || 1)])),
+          : Object.fromEntries(activeMembers.map(member => [member.id, splitRoster.includes(member.id) ? 100 / (splitRoster.length || 1) : 0])),
       ).map(([id, value]) => [id, String(value)])),
     },
   });

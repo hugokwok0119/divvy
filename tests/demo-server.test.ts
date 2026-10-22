@@ -26,6 +26,13 @@ describe('demo server reads', () => {
     expect(state.bootstrap.transactions.length).toBeGreaterThan(0);
   });
 
+  it('returns members with sittingOutAt null', async () => {
+    const { server } = setup();
+    const body = await (await send(server, 'GET', '/api/bootstrap')).json() as { members: Array<{ sittingOutAt: unknown }> };
+    expect(body.members.length).toBeGreaterThan(0);
+    for (const member of body.members) expect(member.sittingOutAt).toBeNull();
+  });
+
   it('serves archived transactions newest first', async () => {
     const { state, server } = setup();
     const res = await send(server, 'GET', '/api/transactions?status=archived');
