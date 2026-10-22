@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { planSend, sendRows } from '../src/lib/sendToGroup';
+import { planSend, rowsPaidBy, sendRows } from '../src/lib/sendToGroup';
 import type { Member, QueueItem, QueueItemInput } from '../src/types';
 
 const member = (id: string, displayName: string, archivedAt: number | null = null): Member => ({
@@ -40,11 +40,11 @@ describe('planSend', () => {
     expect(unmatchedPayers).toEqual(['Yuki', 'Sam']);
   });
 
-  it('clears card and split and keeps the import details', () => {
+  it('clears the card, resets the split to equal and keeps the import details', () => {
     const { inputs } = planSend([row('q1', 'm_yuki')], source, [member('t_yuki', 'Yuki')], () => 'fresh');
     expect(inputs[0]).toEqual({
       id: 'fresh', date: '2026-03-01', store: 'Shop', amountCents: 1234, category: 'Groceries',
-      payerId: 't_yuki', cardId: null, splitType: null, splitRule: null,
+      payerId: 't_yuki', cardId: null, splitType: 'equal', splitRule: null,
       source: 'csv', sourceFileId: 'f1', sourceFileName: 'march.csv',
     });
   });
@@ -88,5 +88,13 @@ describe('sendRows', () => {
       { create: async () => ['n1', 'n2'], remove: () => Promise.reject(new Error('gone')) }, rows, inputs,
     );
     expect(outcome).toEqual({ result: 'copied-not-removed', notCopied: 0 });
+  });
+});
+
+describe('rowsPaidBy', () => {
+  it('counts the rows the named source payer paid', () => {
+    const rows = [row('q1', 'm_kit'), row('q2', 'm_kit'), row('q3', 'm_yuki'), row('q4', null)];
+    expect(rowsPaidBy(rows, source, 'Kit')).toBe(2);
+    expect(rowsPaidBy(rows, source, 'Sam')).toBe(0);
   });
 });

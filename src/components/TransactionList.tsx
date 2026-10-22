@@ -8,10 +8,11 @@ import { api, ApiError } from '../lib/api';
 import { amountWeightsError, customPercentagesError, formatPercentage, parsePercentageDraft, percentagesFromAmounts } from '../lib/percentages';
 import { buildCategorySuggestions } from '../lib/category';
 import { isDemoMode } from '../lib/demo-mode';
+import { MAX_BULK_BATCH } from '../../worker/lib/validate';
 import { memberColorAt } from '../lib/memberColors';
 import CategorySuggestions from './CategorySuggestions';
 import ExpenseHistory from './ExpenseHistory';
-import { Check, Eye, EyeOff, Filter, History, Pencil, Scissors, Star, Trash2, Undo2, Users, ArrowUpDown, FileText, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Filter, History, Pencil, Scissors, Star, Trash2, Undo2, Users, ArrowUpDown, FileText, Send, X } from 'lucide-react';
 import './TransactionList.css';
 import {
   approvedPatch,
@@ -77,6 +78,8 @@ export interface TransactionListProps {
   onSelectionStart?: () => void;
   /** True while another list on screen owns the selection; turning true clears this one's. */
   selectionElsewhere?: boolean;
+  /** Set only when the person belongs to two or more groups: Pending's bulk toolbar offers Send to group. */
+  onSendToGroup?: (rows: QueueItem[]) => void;
 }
 type SortKey = 'date' | 'store' | 'category' | 'amount';
 export function sortAriaValue(
@@ -932,6 +935,12 @@ export default function TransactionList(props: TransactionListProps) {
               >
                 Save
               </button>}
+              {mode === 'pending' && props.onSendToGroup && <button
+                type="button" id="send-to-group" className={`${button} ledger-icon`} aria-label="Send to group"
+                title={selected.size > MAX_BULK_BATCH ? `Select ${MAX_BULK_BATCH} rows or fewer` : 'Send to group'}
+                disabled={allBusy || busy.size > 0 || saving.size > 0 || selected.size > MAX_BULK_BATCH}
+                onClick={() => props.onSendToGroup!(selectedRows.flatMap(row => row.kind === 'pending' ? [row.item] : []))}
+              ><Send size={15} aria-hidden="true" /></button>}
               {mode === 'pending' && (
                 <button
                   aria-label="Approve selected" className={button}

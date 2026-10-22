@@ -2,7 +2,7 @@ import type { Member, QueueItem, QueueItemInput } from '../types';
 
 const nameKey = (name: string) => name.trim().toLowerCase();
 
-/** Copies Pending rows for another group: card and split are cleared, the payer carries over by display name. */
+/** Copies Pending rows for another group: the card is cleared, the split resets to equal, the payer carries over by display name. */
 export function planSend(
   rows: QueueItem[], sourceMembers: Member[], targetMembers: Member[], newId: () => string,
 ): { inputs: QueueItemInput[]; unmatchedPayers: string[] } {
@@ -15,7 +15,7 @@ export function planSend(
     if (payer && matches.length !== 1) unmatched.add(payer.displayName);
     return {
       id: newId(), date: row.date, store: row.store, amountCents: row.amountCents, category: row.category,
-      payerId: matches.length === 1 ? matches[0].id : null, cardId: null, splitType: null, splitRule: null,
+      payerId: matches.length === 1 ? matches[0].id : null, cardId: null, splitType: 'equal', splitRule: null,
       // Legacy rows have no source; the queue validator requires one.
       source: row.source ?? 'manual', sourceFileId: row.sourceFileId, sourceFileName: row.sourceFileName,
     };
@@ -39,3 +39,7 @@ export async function sendRows(
     return { result: 'copied-not-removed', notCopied };
   }
 }
+
+/** How many of `rows` were paid by the source member named `name`, for planSend's unmatched payers. */
+export const rowsPaidBy = (rows: QueueItem[], sourceMembers: Member[], name: string): number =>
+  rows.filter((row) => sourceMembers.find((m) => m.id === row.payerId)?.displayName === name).length;

@@ -40,11 +40,13 @@ interface Props {
   onChanged(): void;
   onSelectionStart(): void;
   selectionElsewhere: boolean;
+  /** Set when the person has two or more groups; gets this group's people for payer matching. */
+  onSendToGroup?: (rows: QueueItem[], sourceMembers: Member[]) => void;
   showToast: (message: string, type?: 'error' | 'success') => void;
 }
 
 /** Another group's Pending rows on the dashboard, read and saved through that group's own client. */
-const GroupPendingSection: React.FC<Props> = ({ group, reloadKey, onChanged, onSelectionStart, selectionElsewhere, showToast }) => {
+const GroupPendingSection: React.FC<Props> = ({ group, reloadKey, onChanged, onSelectionStart, selectionElsewhere, onSendToGroup, showToast }) => {
   const client = useMemo(() => apiFor(group.id), [group.id]);
   const [data, setData] = useState<Bootstrap | null>(null);
   const latest = useRef(0);
@@ -82,6 +84,7 @@ const GroupPendingSection: React.FC<Props> = ({ group, reloadKey, onChanged, onS
           client={client}
           onSelectionStart={onSelectionStart}
           selectionElsewhere={selectionElsewhere}
+          onSendToGroup={onSendToGroup && ((rows) => onSendToGroup(rows, data.members))}
           onQueueUpdate={async (id, patch, revision) => saved(await client.updateQueueItem(id, patch, revision))}
           onQueueBreakdown={async (id, queueItemId, amountCents, revision) => saved(await client.splitQueueItem(id, queueItemId, amountCents, revision))}
           onQueueDelete={async (id, revision) => saved(await client.deleteQueueItem(id, revision))}

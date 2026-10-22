@@ -8,7 +8,7 @@ import { pendingSectionIds, pickGroup } from './lib/groups';
 import { computeSettlement } from './lib/settlement';
 import { formatCentsWithSymbol, cycleGroupsOf, cycleName } from './lib/money';
 import { generateId, CATEGORIES, categoryOptions } from './constants';
-import type { Bootstrap, GroupSummary, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
+import type { Bootstrap, GroupSummary, Member, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
 import { LoginPage } from './components/auth/LoginPage';
 import { useToast, Toast } from './components/Toast';
 import InputSection from './components/InputSection';
@@ -23,6 +23,7 @@ import GroupSwitcher from './components/GroupSwitcher';
 import SplittingWith from './components/SplittingWith';
 import { permissionsFor } from './lib/permissions';
 import NewGroupCard from './components/NewGroupCard';
+import SendToGroupCard from './components/SendToGroupCard';
 import GroupPendingSection, { confirmQueueItemWith, GroupPendingHeader } from './components/GroupPendingSection';
 
 type View = 'dashboard' | 'history' | 'settings' | 'analytics';
@@ -52,6 +53,7 @@ const App: React.FC = () => {
   const [sectionReloadKey, setSectionReloadKey] = useState(0);
   // The group whose Pending list holds the bulk selection; selecting in another list clears it.
   const [selectionOwner, setSelectionOwner] = useState<string | null>(null);
+  const [sendRequest, setSendRequest] = useState<{ rows: QueueItem[]; fromGroup: GroupSummary; sourceMembers: Member[] } | null>(null);
   // Only the newest reload applies, so a late one cannot bring back an emptied
   // Pending section. A failed reload keeps the cached list.
   const groupsRequest = useRef(0);
@@ -340,6 +342,29 @@ const App: React.FC = () => {
     />
   );
 
+  const canSend = !!groupList && groupList.groups.length >= 2;
+  const openSend = (fromId: string, sourceMembers: Member[], rows: QueueItem[]) => {
+    const fromGroup = groupList?.groups.find((g) => g.id === fromId);
+    if (fromGroup) setSendRequest({ rows, fromGroup, sourceMembers });
+  };
+  const sendCard = sendRequest && groupList && (
+    <SendToGroupCard
+      {...sendRequest}
+      groups={groupList.groups}
+      onClose={() => setSendRequest(null)}
+      onSent={() => {
+        setSendRequest(null);
+        // An owner that is no list clears every selection, including rows that stayed behind.
+        setSelectionOwner('');
+        void refresh();
+        setSectionReloadKey((key) => key + 1);
+        reloadGroups();
+      }}
+      restoreFocus={() => document.getElementById('send-to-group')}
+      showToast={showToast}
+    />
+  );
+
   // In the demo a session refetch (on focus) must not unmount the app.
   if (!demo && isPending) return <div className="min-h-screen grid place-items-center text-slate-500">Loading…</div>;
   if (!demo && !session) return <LoginPage onTryDemo={enterDemo} />;
@@ -424,6 +449,7 @@ const App: React.FC = () => {
       {demo && howItWorksOpen && <demo.HowItWorksCard onClose={() => setHowItWorksOpen(false)} />}
 
       {newGroupCard}
+      {sendCard}
 
       {/* Keyed by group: every view remounts and refetches when the group changes. */}
       <main key={data.household.id} className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -509,6 +535,7 @@ const App: React.FC = () => {
                 onDraftStateChange={setLedgerDraftState}
                 onSelectionStart={() => setSelectionOwner(data.household.id)}
                 selectionElsewhere={selectionOwner !== null && selectionOwner !== data.household.id}
+                onSendToGroup={canSend ? (rows) => openSend(data.household.id, data.members, rows) : undefined}
                 members={data.members}
                 cards={data.cards}
                 categories={categories}
@@ -540,6 +567,7 @@ const App: React.FC = () => {
                   onChanged={reloadGroups}
                   onSelectionStart={() => setSelectionOwner(id)}
                   selectionElsewhere={selectionOwner !== null && selectionOwner !== id}
+                  onSendToGroup={canSend ? (rows, members) => openSend(id, members, rows) : undefined}
                   showToast={showToast}
                 />
               ))}
