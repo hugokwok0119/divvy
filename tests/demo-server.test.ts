@@ -96,6 +96,23 @@ describe('demo server reads', () => {
     expect(await res.text()).toBe('null');
   });
 
+  it('lists the demo household as the only group', async () => {
+    const { state, server } = setup();
+    const res = await send(server, 'GET', '/api/groups');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      groups: [{
+        id: state.bootstrap.household.id,
+        name: state.bootstrap.household.name,
+        role: 'owner',
+        memberId: state.bootstrap.me.memberId,
+        peopleCount: state.bootstrap.members.filter((m) => m.archivedAt === null).length,
+        pendingCount: state.bootstrap.queue.length,
+      }],
+      canCreate: false,
+    });
+  });
+
   it('reminders are empty', async () => {
     const res = await send(setup().server, 'GET', '/api/reminders?month=2026-10');
     expect(res.status).toBe(200);

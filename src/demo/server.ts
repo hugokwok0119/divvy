@@ -99,6 +99,16 @@ export function createDemoServer(state: DemoState, samples: SampleResult[], opti
         return json({ cycle, transactions: transactionsByCycle(cycle.id), settlement: cycleSettlement(cycle.id) });
       },
     },
+    {
+      method: 'GET', pattern: '/api/groups', handler: () => {
+        const { household, me, members, queue } = state.bootstrap;
+        return json({
+          groups: [{ id: household.id, name: household.name, role: 'owner', memberId: me.memberId,
+            peopleCount: members.filter((m) => m.archivedAt === null).length, pendingCount: queue.length }],
+          canCreate: false,
+        });
+      },
+    },
     { method: 'GET', pattern: '/api/reminders', handler: () => json([]) },
     { method: 'GET', pattern: '/api/auth/get-session', handler: () => json(null) },
     ...queueRoutes({ state, now, newId, roster }),
