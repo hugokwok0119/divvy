@@ -54,7 +54,7 @@ All money is integer cents. Timestamps are epoch milliseconds.
 
 | Table | Holds |
 |---|---|
-| `households` | One household, shown to people as a group: name, currency (CAD), timezone (America/Vancouver), custom categories, sign-in allowlist |
+| `households` | One household, shown to people as a group: name, currency (CAD), timezone (America/Vancouver), custom categories, sign-in allowlist, rent-reminder flag |
 | `household_members` | Participants, their role (`owner` or `member`), display order, and the linked user once they sign in |
 | `member_accounts` | Links an account to a member slot, at most one slot per account in each group, so one account can belong to many groups. Triggers copy `household_members.user_id` into it until that column is dropped |
 | `cards` | Payment cards per member, with an optional statement day for reminders |
@@ -249,3 +249,6 @@ Each entry gives the date, the decision and the reason.
     that opens the same menu, because importing into the wrong ledger is the costly mistake.
     Rejected: a separate groups page (an extra step on every switch) and a default to the first
     group (the silent wrong-ledger write from entry 17).
+20. **2026-10-22. The rent reminder is a per-group setting.** Existing households keep it on, because
+    the migration adds `rent_reminder` with a default of 1. New groups start with it off, because a
+    trip has no rent. The group owner turns it on or off in Settings, under Reminders.
