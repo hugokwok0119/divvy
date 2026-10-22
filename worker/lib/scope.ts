@@ -1265,7 +1265,7 @@ export function isOwnerEmail(email: string, ownerEmail: string): boolean {
   return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
 }
 
-function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: string): boolean {
+export function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: string): boolean {
   if (isOwnerEmail(email, ownerEmail)) return true;
   const normalized = email.trim().toLowerCase();
   const allowlist: AllowlistEntry[] = JSON.parse(allowedEmailsJson);

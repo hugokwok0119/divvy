@@ -9,7 +9,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { Context } from 'hono';
 import { households, householdMembers, memberAccounts } from '../db/schema';
 import { createAuth } from '../auth';
-import { isOwnerEmail } from './scope';
+import { isEmailAllowed, isOwnerEmail } from './scope';
 import type { Env } from '../index';
 
 export interface GroupSummary {
@@ -52,7 +52,7 @@ export async function requireGroupCreator(c: GroupContext) {
 
 export async function listGroups(c: GroupContext): Promise<{ groups: GroupSummary[]; canCreate: boolean }> {
   const session = await requireSession(c);
-  const groups = await drizzle(c.env.DB)
+  const rows = await drizzle(c.env.DB)
     .select({
       id: households.id,
       name: households.name,
@@ -60,6 +60,7 @@ export async function listGroups(c: GroupContext): Promise<{ groups: GroupSummar
       memberId: householdMembers.id,
       peopleCount: sql<number>`(select count(*) from household_members p where p.household_id = ${households.id} and p.archived_at is null)`,
       pendingCount: sql<number>`(select count(*) from queue_items q where q.household_id = ${households.id})`,
+      allowedEmailsJson: households.allowedEmailsJson,
     })
     .from(memberAccounts)
     .innerJoin(householdMembers, eq(householdMembers.id, memberAccounts.memberId))
@@ -67,6 +68,10 @@ export async function listGroups(c: GroupContext): Promise<{ groups: GroupSummar
     // An archived member cannot open the group (requireScope refuses it), so it is not listed.
     .where(and(eq(memberAccounts.userId, session.user.id), isNull(householdMembers.archivedAt)))
     .orderBy(asc(memberAccounts.linkedAt), asc(households.id));
+  // Same allowlist rule as requireScope: a removed person sees neither the group nor its counts.
+  const groups = rows
+    .filter((r) => isEmailAllowed(session.user.email, r.allowedEmailsJson, c.env.OWNER_EMAIL))
+    .map(({ allowedEmailsJson: _, ...group }) => group);
   return { groups, canCreate: isOwnerEmail(session.user.email, c.env.OWNER_EMAIL) };
 }
 
@@ -79,11 +84,13 @@ export async function createGroup(
   const id = crypto.randomUUID();
   const memberId = crypto.randomUUID();
   const now = Date.now();
+  // Never fall back to the email: emails stay on the server.
+  const ownerName = session.user.name.trim() || 'Owner';
   // user_id stays null: that column is globally unique and already links the
   // caller's first household. The member_accounts row is the link here.
   await db.batch([
     db.insert(households).values({ id, ...input, rentReminder: 0, allowedEmailsJson: '[]', createdAt: now }),
-    db.insert(householdMembers).values({ id: memberId, householdId: id, displayName: session.user.name, role: 'owner', sortOrder: 0, createdAt: now }),
+    db.insert(householdMembers).values({ id: memberId, householdId: id, displayName: ownerName, role: 'owner', sortOrder: 0, createdAt: now }),
     db.insert(memberAccounts).values({ memberId, householdId: id, userId: session.user.id, linkedAt: now }),
   ]);
   return { id, name: input.name, role: 'owner', memberId, peopleCount: 1, pendingCount: 0 };

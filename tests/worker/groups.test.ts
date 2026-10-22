@@ -68,6 +68,18 @@ describe('GET /api/groups', () => {
     expect((await res.json() as { groups: Array<{ id: string }> }).groups.map((g) => g.id)).toEqual(['h1']);
   });
 
+  it('leaves out a group whose allowlist no longer has the caller\'s email', async () => {
+    await db().update(households)
+      .set({ allowedEmailsJson: JSON.stringify([{ email: 'sam@example.com', memberId: 'm2' }]) })
+      .where(eq(households.id, 'h1'));
+    await db().update(householdMembers).set({ userId: 'u2' }).where(eq(householdMembers.id, 'm2'));
+    await db().insert(householdMembers).values({ id: 'm8', householdId: 'h2', displayName: 'Sam', createdAt: 0, sortOrder: 1 });
+    await db().insert(memberAccounts).values({ memberId: 'm8', householdId: 'h2', userId: 'u2', linkedAt: 3 });
+
+    const res = await call(await signInAs('u2', 'Sam@Example.com'));
+    expect((await res.json() as { groups: Array<{ id: string }> }).groups.map((g) => g.id)).toEqual(['h1']);
+  });
+
   it('says only the owner email can create groups', async () => {
     const owner = await call(await signInAs('u1', ' Owner@Example.com '));
     expect(await owner.json()).toMatchObject({ canCreate: true });
@@ -99,6 +111,14 @@ describe('POST /api/groups', () => {
     // The new group is usable through requireScope.
     const scoped = await workerApp.request('http://localhost/api/members', { headers: { Cookie: cookie, 'x-divvy-group': created.id } }, testEnv);
     expect(scoped.status).toBe(200);
+  });
+
+  it('names the owner member Owner when the account has no name', async () => {
+    const res = await call(await signInAs('u1', 'owner@example.com', '   '), 'POST', input);
+    expect(res.status).toBe(201);
+    const { memberId } = await res.json() as { memberId: string };
+    const [member] = await db().select().from(householdMembers).where(eq(householdMembers.id, memberId));
+    expect(member.displayName).toBe('Owner');
   });
 
   it('refuses group creation from a non-owner account', async () => {
