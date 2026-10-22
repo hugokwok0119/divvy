@@ -63,7 +63,9 @@ export async function listGroups(c: GroupContext): Promise<{ groups: GroupSummar
       allowedEmailsJson: households.allowedEmailsJson,
     })
     .from(memberAccounts)
-    .innerJoin(householdMembers, eq(householdMembers.id, memberAccounts.memberId))
+    .innerJoin(householdMembers, and(
+      eq(householdMembers.id, memberAccounts.memberId), eq(householdMembers.householdId, memberAccounts.householdId),
+    ))
     .innerJoin(households, eq(households.id, memberAccounts.householdId))
     // An archived member cannot open the group (requireScope refuses it), so it is not listed.
     .where(and(eq(memberAccounts.userId, session.user.id), isNull(householdMembers.archivedAt)))

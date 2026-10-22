@@ -1305,7 +1305,9 @@ async function resolveScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
   const group = requestedGroup(c);
   const rows = await db
     .select(getTableColumns(householdMembers)).from(memberAccounts)
-    .innerJoin(householdMembers, eq(householdMembers.id, memberAccounts.memberId))
+    .innerJoin(householdMembers, and(
+      eq(householdMembers.id, memberAccounts.memberId), eq(householdMembers.householdId, memberAccounts.householdId),
+    ))
     .where(and(
       eq(memberAccounts.userId, session.user.id),
       group === undefined ? undefined : eq(memberAccounts.householdId, group),

@@ -240,6 +240,26 @@ describe('requireScope group choice', () => {
     expect(await res.text()).toBe('No household membership');
   });
 
+  it('refuses an existing group the account has no link to', async () => {
+    for (const res of [await probe('/probe', { 'x-divvy-group': 'h2' }), await probe('/probe?group=h2')]) {
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe('No household membership');
+    }
+  });
+
+  it('ignores a link whose group does not match its member', async () => {
+    // x1 belongs to h2, but this row claims h1 for it.
+    await db().update(households)
+      .set({ allowedEmailsJson: JSON.stringify([{ email: 'pat@example.com', memberId: 'x1' }]) })
+      .where(eq(households.id, 'h2'));
+    await db().insert(memberAccounts).values({ memberId: 'x1', householdId: 'h1', userId: 'u2', linkedAt: 0 });
+    cookie = await signInAs('u2', 'pat@example.com');
+    for (const res of [await probe('/probe'), await probe('/probe', { 'x-divvy-group': 'h1' })]) {
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe('No household membership');
+    }
+  });
+
   it('treats an empty group value as no group named', async () => {
     await linkSecondGroup();
     for (const res of [await probe('/probe', { 'x-divvy-group': '' }), await probe('/probe?group=')]) {
