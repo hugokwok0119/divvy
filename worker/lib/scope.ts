@@ -1265,6 +1265,7 @@ export async function requireScope(c: Context<{ Bindings: Env }>): Promise<Scope
   if (rows.length === 0) throw new HTTPException(403, { message: 'No household membership' });
 
   const member = rows[0];
+  if (member.archivedAt !== null) throw new HTTPException(403, { message: 'Removed from this household' });
   const repo = new ScopedRepository(db, member.householdId, { memberId: member.id, displayName: member.displayName });
 
   // Every later sign-in (and every later request) must still match the

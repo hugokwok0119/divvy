@@ -274,7 +274,7 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
             </button>
           </>}
         >
-          <p>They and their cards leave member lists, split choices and card pickers. Expenses they paid or share keep their name and still count in balances.</p>
+          <p>They lose access to this household, and they and their cards leave member lists, split choices and card pickers. Expenses they paid or share keep their name and still count in balances.</p>
         </ModalCard>
       )}
 

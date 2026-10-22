@@ -163,6 +163,15 @@ describe('requireScope', () => {
     expect(res.status).toBe(403);
   });
 
+  it('throws 403 once the caller has been removed from the household', async () => {
+    await db().update(householdMembers).set({ userId: 'u-sam' }).where(eq(householdMembers.id, 'm1'));
+    const cookie = await signInAs('u-sam', 'sam@example.com');
+    await new ScopedRepository(db(), 'h1').archiveMember('m1');
+
+    const res = await probeApp().request('http://localhost/probe', { headers: { Cookie: cookie } }, testEnv);
+    expect(res.status).toBe(403);
+  });
+
   it('allows the owner even when absent from the allowlist', async () => {
     await db().update(householdMembers).set({ userId: 'u-hugo' }).where(eq(householdMembers.id, 'm2'));
     const cookie = await signInAs('u-hugo', 'owner@example.com');
