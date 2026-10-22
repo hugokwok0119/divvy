@@ -6,8 +6,10 @@ import {
   formatCentsWithSymbol, closedDateOf, cycleGroupLabel,
   disambiguatedClosedDates, summarizeCycleTransactions,
 } from '../lib/money';
-import { ArrowLeft, Calendar, ChevronRight, ChevronDown, CheckCircle, Edit2, Lock, X } from 'lucide-react';
+import { ArrowLeft, Calendar, ChevronRight, ChevronDown, CheckCircle, Download, Edit2, Lock, X } from 'lucide-react';
 import TransactionList from './TransactionList';
+import CycleSummaryDialog from './CycleSummaryDialog';
+import { buildCycleSummary } from '../lib/cycleSummary';
 import { permissionsFor, type Role } from '../lib/permissions';
 import { combinedSettlement } from '../lib/settlement';
 
@@ -19,6 +21,7 @@ interface Props {
   onBack: () => void;
   onChanged: () => Promise<void>;
   showToast: (message: string, type?: 'error' | 'success') => void;
+  householdName: string;
 }
 
 type CycleRow = Cycle & { settlement: Settlement; groups: CycleGroup[] };
@@ -31,8 +34,9 @@ const transferTotal = (s: Settlement) => s.transfers.reduce((sum, t) => sum + t.
 // DOM/render cost of a growing history — not a network page size.
 const PAGE_SIZE = 20;
 
-const HistoryPage: React.FC<Props> = ({ members, cards, categories, role, onBack, onChanged, showToast }) => {
+const HistoryPage: React.FC<Props> = ({ members, cards, categories, role, onBack, onChanged, showToast, householdName }) => {
   const perms = permissionsFor(role);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [cycleList, setCycleList] = useState<CycleRow[] | null>(null);
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [detail, setDetail] = useState<CycleDetail | null>(null);
@@ -380,6 +384,27 @@ const HistoryPage: React.FC<Props> = ({ members, cards, categories, role, onBack
                       {isEditing ? 'Done Editing' : 'Edit Transactions'}
                     </button>
                   </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setSummaryOpen(true)}
+                  // A stale detail stays rendered while the next cycle loads; never export it.
+                  disabled={detail.cycle.id !== selectedCycleId || detail.transactions.length === 0}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                >
+                  <Download size={14} aria-hidden="true" />
+                  Download summary
+                </button>
+                {summaryOpen && (
+                  <CycleSummaryDialog
+                    summary={buildCycleSummary({
+                      householdName, cycle: detail.cycle, transactions: detail.transactions,
+                      settlement: detail.settlement, members,
+                    })}
+                    closedLabel={closedLabels[detail.cycle.id] ?? closedDateOf(detail.cycle.closedAt)}
+                    onClose={() => setSummaryOpen(false)}
+                  />
                 )}
               </div>
 

@@ -16,6 +16,7 @@
     "better-auth": "^1.6.28",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.2",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
