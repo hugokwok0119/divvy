@@ -21,7 +21,7 @@ type ApprovalBaseline = Pick<typeof transactions.$inferSelect,
 import { createAuth } from '../auth';
 import type { AllowlistEntry } from './onboarding';
 import type { Env } from '../index';
-import { computeShares, computeSettlement, type SplitType, type SplitRule, type Settlement } from '../../src/lib/settlement';
+import { computeShares, computeSettlement, splitRosterOf, type SplitType, type SplitRule, type Settlement } from '../../src/lib/settlement';
 import { canNormalizePercentages, customPercentagesError, sameSplitRule } from '../../src/lib/percentages';
 import { normalizeMerchantName } from '../../src/lib/category';
 import { isDuplicateMatch } from '../../src/lib/duplicates';
@@ -56,6 +56,7 @@ export interface PublicMember {
   role: string;
   sortOrder: number;
   archivedAt: number | null;
+  sittingOutAt: number | null;
 }
 
 export interface QueueInput {
@@ -104,8 +105,8 @@ export class ScopedRepository {
    */
   async publicMembers(): Promise<PublicMember[]> {
     const rows = await this.members();
-    return rows.map(({ id, displayName, role, sortOrder, archivedAt }) => ({
-      id, displayName, role, sortOrder, archivedAt,
+    return rows.map(({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) => ({
+      id, displayName, role, sortOrder, archivedAt, sittingOutAt,
     }));
   }
 
@@ -119,6 +120,15 @@ export class ScopedRepository {
       ))
       .orderBy(asc(householdMembers.sortOrder));
     return rows.map((r) => r.id);
+  }
+
+  /** Who a new equal split spreads across. Members who sit out stay in roster() for custom and single splits. */
+  async splitRoster(): Promise<string[]> {
+    return splitRosterOf(await this.members());
+  }
+
+  private rosterFor(splitType: string) {
+    return splitType === 'equal' ? this.splitRoster() : this.roster();
   }
 
   async cards() {
@@ -300,7 +310,7 @@ export class ScopedRepository {
       }
     }
     return { roster: members.filter(member => member.archivedAt === null).map(member => member.id),
-      cardNames: new Map(ownedCards.map(card => [card.id, card.name])) };
+      splitRoster: splitRosterOf(members), cardNames: new Map(ownedCards.map(card => [card.id, card.name])) };
   }
 
   private assertCustomAllocation(splitType: string | null, splitRule: SplitRule | null | undefined,
@@ -314,7 +324,7 @@ export class ScopedRepository {
     return false;
   }
 
-  private async transactionValues(input: TxInput, owned?: { roster: string[]; cardNames: Map<string, string> },
+  private async transactionValues(input: TxInput, owned?: { roster: string[]; splitRoster: string[]; cardNames: Map<string, string> },
     current?: { splitType: string | null; splitRuleJson: string | null }) {
     const unchangedCustom = this.assertCustomAllocation(input.splitType, input.splitRule, current);
     if (!owned) await this.assertOwns({ payerId: input.payerId, cardId: input.cardId });
@@ -325,7 +335,8 @@ export class ScopedRepository {
       amountCents: input.amountCents, category: canonicalCategory(input.category), payerId: input.payerId,
       cardId: input.cardId, cardNameSnapshot: owned ? (input.cardId ? owned.cardNames.get(input.cardId)! : null) : await this.cardName(input.cardId), splitType: input.splitType,
       splitRuleJson: unchangedCustom ? current!.splitRuleJson : (input.splitRule ? JSON.stringify(input.splitRule) : null),
-      splitSharesJson: JSON.stringify(computeShares(input.amountCents, input.splitType, input.splitRule, owned?.roster ?? await this.roster())),
+      splitSharesJson: JSON.stringify(computeShares(input.amountCents, input.splitType, input.splitRule,
+        owned ? (input.splitType === 'equal' ? owned.splitRoster : owned.roster) : await this.rosterFor(input.splitType))),
       isStarred: input.isStarred ? 1 : 0, favoriteName: input.favoriteName ?? null,
       source: 'manual', sourceFileId: null, sourceFileName: null, reviewNote: null,
       createdAt: now, deletedAt: null };
@@ -402,7 +413,7 @@ export class ScopedRepository {
     const currentShares: Record<string, number> = JSON.parse(current.splitSharesJson);
     const frozen = this.frozenParticipants(current);
     const participants = explicitReSplit
-      ? [...new Set([...frozen, ...(await this.roster())])].sort()
+      ? [...new Set([...frozen, ...(await this.rosterFor(splitType))])].sort()
       : frozen;
     const shares = splitChanged
       ? computeShares(amountCents, splitType, splitRule, participants)
@@ -761,7 +772,7 @@ export class ScopedRepository {
       splitSharesJson: unchangedAllocation && current.amountCents === baseline.amountCents ? baseline.splitSharesJson
         : JSON.stringify(computeShares(current.amountCents!, (current.splitType ?? baseline.splitType) as TxInput['splitType'],
           capturedRule ? JSON.parse(capturedRule) : null,
-          unchangedAllocation ? this.frozenParticipants(baseline) : await this.roster())),
+          unchangedAllocation ? this.frozenParticipants(baseline) : await this.rosterFor(current.splitType ?? baseline.splitType))),
       isStarred: 0, favoriteName: null };
     const guard = and(this.queueGuard(current), this.inputUnused(queueItemId, 'pending'),
       sql`not exists (select 1 from ${queueTable} where ${queueTable.id} = ${queueItemId})`,
@@ -1118,6 +1129,18 @@ export class ScopedRepository {
       this.db.update(cards).set({ archived: 1 })
         .where(and(eq(cards.memberId, id), eq(cards.householdId, this.householdId))),
     ]);
+  }
+
+  /** Sitting out leaves a member out of new equal splits; existing shares never change. */
+  async setSittingOut(id: string, sittingOut: boolean): Promise<PublicMember> {
+    const members = await this.members();
+    if (!members.some((m) => m.id === id && m.archivedAt === null)) throw new HTTPException(404, { message: 'Member not found' });
+    if (sittingOut && splitRosterOf(members).every((other) => other === id)) {
+      throw new HTTPException(409, { message: 'At least one member must stay in' });
+    }
+    await this.db.update(householdMembers).set({ sittingOutAt: sittingOut ? Date.now() : null })
+      .where(and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId)));
+    return (await this.publicMembers()).find((m) => m.id === id)!;
   }
 
   async upsertCard(input: {
