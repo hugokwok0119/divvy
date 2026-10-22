@@ -9,6 +9,7 @@ export const households = sqliteTable('households', {
   allowedEmailsJson: text('allowed_emails_json').notNull().default('[]'),
   // Name the user gave the open cycle; closeCycle moves it to cycles.name.
   currentCycleName: text('current_cycle_name'),
+  rentReminder: integer('rent_reminder').notNull().default(1),
   createdAt: integer('created_at').notNull(),
 });
 
@@ -20,8 +21,16 @@ export const householdMembers = sqliteTable('household_members', {
   role: text('role').notNull().default('member'),
   sortOrder: integer('sort_order').notNull().default(0),
   archivedAt: integer('archived_at'),
+  sittingOutAt: integer('sitting_out_at'),
   createdAt: integer('created_at').notNull(),
-});
+}, (t) => [index('members_household_idx').on(t.householdId)]);
+
+export const memberAccounts = sqliteTable('member_accounts', {
+  memberId: text('member_id').primaryKey().references(() => householdMembers.id, { onDelete: 'cascade' }),
+  householdId: text('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull(),
+  linkedAt: integer('linked_at').notNull(),
+}, (t) => [uniqueIndex('member_accounts_group_user_idx').on(t.householdId, t.userId), index('member_accounts_user_idx').on(t.userId)]);
 
 export const cards = sqliteTable('cards', {
   id: text('id').primaryKey(),
@@ -35,7 +44,7 @@ export const cards = sqliteTable('cards', {
   historyName: text('history_name'),
   historyStatementDay: integer('history_statement_day'),
   historyAppliedAt: integer('history_applied_at'),
-});
+}, (t) => [index('cards_household_idx').on(t.householdId)]);
 
 export const cycles = sqliteTable('cycles', {
   id: text('id').primaryKey(),
@@ -49,7 +58,7 @@ export const cycles = sqliteTable('cycles', {
   settledAt: integer('settled_at'),
   // Null shows the default label; set only after the user renames the cycle.
   name: text('name'),
-});
+}, (t) => [index('cycles_household_idx').on(t.householdId)]);
 
 export const transactions = sqliteTable('transactions', {
   expenseId: text('expense_id').notNull().default(''),
@@ -111,7 +120,7 @@ export const queueItems = sqliteTable('queue_items', {
   isDuplicate: integer('is_duplicate').notNull().default(0),
   source: text('source'),
   createdAt: integer('created_at').notNull(),
-}, (table) => [uniqueIndex('queue_expense_idx').on(table.expenseId)]);
+}, (table) => [uniqueIndex('queue_expense_idx').on(table.expenseId), index('queue_household_idx').on(table.householdId)]);
 
 export const expenseHistory = sqliteTable('expense_history', {
   id: text('id').primaryKey(),

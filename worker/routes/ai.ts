@@ -32,14 +32,13 @@ aiRoutes.post('/parse-receipt', async (c) => {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: household.timezone })
     .format(new Date());
 
-  // Quota policy: checkAiQuota increments on this attempt, before the
-  // upstream call, so a failed scan (timeout, upstream error, unsupported
-  // file, etc.) still consumes the day's allowance same as a successful one.
-  // Every attempt costs a real Gemini request whether or not it succeeds, and
-  // a retry-on-failure loop that didn't count against quota would make the
-  // limit meaningless. checkAiQuota only exposes an atomic check-and-increment
-  // (worker/lib/ratelimit.ts, outside this route's ownership); refunding
-  // quota on failure would need a separate decrement path there.
+  // Quota policy: checkAiQuota counts this attempt against the group's day and
+  // the app-wide `all` counter on the Pacific day before the Gemini call, since
+  // every group shares one key. A failed scan (timeout, upstream error,
+  // unsupported file) still counts, so retries cannot get around the limit.
+  // An attempt the `all` counter refuses still counts against the group and
+  // never calls Gemini. Refunds would need a decrement path in
+  // worker/lib/ratelimit.ts.
   const withinLimit = await scope.repo.checkAiQuota(today);
   if (!withinLimit) {
     throw new HTTPException(429, {

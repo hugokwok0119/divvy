@@ -11,7 +11,7 @@ import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1';
 import { HTTPException } from 'hono/http-exception';
 import type { Context } from 'hono';
 import {
-  households, householdMembers, cards, cycles, transactions,
+  households, householdMembers, memberAccounts, cards, cycles, transactions,
   queueItems as queueTable, categoryPreferences, expenseHistory, reminderCompletions,
 } from '../db/schema';
 import { conditionalInsert, conditionalJsonInsert, eventExists, historyValues, historyStatement, snapshot, publicHistory, changedExpenseFields, type ExpenseActor } from './ledger-history';
@@ -27,6 +27,7 @@ import { normalizeMerchantName } from '../../src/lib/category';
 import { isDuplicateMatch } from '../../src/lib/duplicates';
 import { canonicalCategory } from '../../src/constants';
 import { closedCycleCard } from '../../src/lib/money';
+import { todayIn } from '../../src/lib/reminders';
 import { checkAndIncrement, DAILY_AI_LIMIT } from './ratelimit';
 
 export interface OwnershipRefs {
@@ -1224,9 +1225,15 @@ export class ScopedRepository {
     return this.household();
   }
 
-  /** Returns false when the household is over its daily AI-usage allowance. */
+  /**
+   * Returns false when the household, or the app as a whole, is over its daily
+   * AI-usage allowance. Every group shares one free-tier Gemini key, so the
+   * `all` counter caps scans across groups on the Pacific day.
+   */
   async checkAiQuota(usageDate: string, limit = DAILY_AI_LIMIT): Promise<boolean> {
-    return checkAndIncrement(this.db, this.householdId, usageDate, limit);
+    // Group first, so a group past its own cap does not spend the shared allowance.
+    if (!await checkAndIncrement(this.db, this.householdId, usageDate, limit)) return false;
+    return checkAndIncrement(this.db, 'all', todayIn('America/Vancouver'), DAILY_AI_LIMIT);
   }
 
   /** Full dump for the Download my data button. Auth tables are never included. */
@@ -1261,23 +1268,60 @@ export interface Scope {
 }
 
 /** Matches resolveSignIn's normalization: trimmed, case-insensitive. */
-function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: string): boolean {
+export function isOwnerEmail(email: string, ownerEmail: string): boolean {
+  return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+}
+
+export function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: string): boolean {
+  if (isOwnerEmail(email, ownerEmail)) return true;
   const normalized = email.trim().toLowerCase();
-  if (normalized === ownerEmail.trim().toLowerCase()) return true;
   const allowlist: AllowlistEntry[] = JSON.parse(allowedEmailsJson);
   return allowlist.some((e) => e.email.trim().toLowerCase() === normalized);
 }
 
-export async function requireScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
+/** The group the client names for this request, if any. An empty value names none. */
+function requestedGroup(c: Context<{ Bindings: Env }>): string | undefined {
+  return c.req.header('x-divvy-group') || c.req.query('group') || undefined;
+}
+
+// The /api/* middleware and then the handler both call requireScope; one
+// resolution per request serves both.
+const scopes = new WeakMap<Request, Promise<Scope>>();
+
+export function requireScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
+  let scope = scopes.get(c.req.raw);
+  if (!scope) {
+    scope = resolveScope(c);
+    scopes.set(c.req.raw, scope);
+  }
+  return scope;
+}
+
+async function resolveScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
   const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
   if (!session?.user) throw new HTTPException(401, { message: 'Not signed in' });
 
   const db = drizzle(c.env.DB);
+  const group = requestedGroup(c);
   const rows = await db
-    .select().from(householdMembers)
-    .where(eq(householdMembers.userId, session.user.id)).limit(1);
+    .select(getTableColumns(householdMembers)).from(memberAccounts)
+    .innerJoin(householdMembers, and(
+      eq(householdMembers.id, memberAccounts.memberId), eq(householdMembers.householdId, memberAccounts.householdId),
+    ))
+    .where(and(
+      eq(memberAccounts.userId, session.user.id),
+      group === undefined ? undefined : eq(memberAccounts.householdId, group),
+    ))
+    // Active links first: two rows that are both active mean the caller must choose.
+    .orderBy(sql`${householdMembers.archivedAt} is not null`)
+    .limit(2);
 
   if (rows.length === 0) throw new HTTPException(403, { message: 'No household membership' });
+  if (rows.filter((r) => r.archivedAt === null).length > 1) {
+    throw new HTTPException(400, {
+      res: Response.json({ error: 'Choose a group', reason: 'group_required' }, { status: 400 }),
+    });
+  }
 
   const member = rows[0];
   if (member.archivedAt !== null) throw new HTTPException(403, { message: 'Removed from this household' });

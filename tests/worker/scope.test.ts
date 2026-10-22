@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { serializeSignedCookie } from 'better-call';
-import { households, householdMembers, cards, cycles } from '../../worker/db/schema';
+import { households, householdMembers, memberAccounts, cards, cycles } from '../../worker/db/schema';
 import { ScopedRepository, requireScope, requireOwner, type Scope } from '../../worker/lib/scope';
 import { createAuth } from '../../worker/auth';
 import workerApp, { type Env } from '../../worker/index';
@@ -37,12 +37,17 @@ function probeApp() {
     const scope = await requireScope(c);
     return c.json({ householdId: scope.householdId, memberId: scope.memberId, role: scope.role });
   });
+  app.get('/probe-twice', async (c) => {
+    const [first, second] = [await requireScope(c), await requireScope(c)];
+    return c.json({ same: first === second });
+  });
   return app;
 }
 
 beforeEach(async () => {
   await env.DB.exec('DELETE FROM cycles');
   await env.DB.exec('DELETE FROM cards');
+  await env.DB.exec('DELETE FROM member_accounts');
   await env.DB.exec('DELETE FROM household_members');
   await env.DB.exec('DELETE FROM households');
   await env.DB.exec('DELETE FROM session');
@@ -178,6 +183,127 @@ describe('requireScope', () => {
     // owner@example.com is intentionally not in h1's allowedEmailsJson (only sam@example.com is).
     const res = await probeApp().request('http://localhost/probe', { headers: { Cookie: cookie } }, testEnv);
     expect(res.status).toBe(200);
+  });
+});
+
+describe('requireScope group choice', () => {
+  let cookie: string;
+  const probe = (path: string, headers: Record<string, string> = {}) =>
+    probeApp().request(`http://localhost${path}`, { headers: { Cookie: cookie, ...headers } }, testEnv);
+
+  // u1 is linked to m1 in h1 through user_id (mirrored by the trigger).
+  beforeEach(async () => {
+    await db().update(householdMembers).set({ userId: 'u1' }).where(eq(householdMembers.id, 'm1'));
+    cookie = await signInAs('u1', 'sam@example.com');
+  });
+
+  // A second link, to m9 in h2: a direct member_accounts row, user_id left null.
+  async function linkSecondGroup() {
+    await db().update(households)
+      .set({ allowedEmailsJson: JSON.stringify([{ email: 'sam@example.com', memberId: 'm9' }]) })
+      .where(eq(households.id, 'h2'));
+    await db().insert(householdMembers).values({ id: 'm9', householdId: 'h2', displayName: 'Sam', createdAt: 0, sortOrder: 1 });
+    await db().insert(memberAccounts).values({ memberId: 'm9', householdId: 'h2', userId: 'u1', linkedAt: 0 });
+  }
+
+  it('uses the only group when no group is named', async () => {
+    const res = await probe('/probe');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ householdId: 'h1', memberId: 'm1' });
+  });
+
+  it('asks for a group when the account has two and none is named', async () => {
+    await linkSecondGroup();
+    const res = await probe('/probe');
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Choose a group', reason: 'group_required' });
+  });
+
+  it('scopes to the group named in x-divvy-group', async () => {
+    await linkSecondGroup();
+    const res = await probe('/probe', { 'x-divvy-group': 'h2' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ householdId: 'h2', memberId: 'm9' });
+  });
+
+  it('scopes to the group named in the group query parameter', async () => {
+    await linkSecondGroup();
+    const res = await probe('/probe?group=h2');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ householdId: 'h2', memberId: 'm9' });
+  });
+
+  it('refuses a group the account is not in', async () => {
+    await linkSecondGroup();
+    const res = await probe('/probe', { 'x-divvy-group': 'h3' });
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe('No household membership');
+  });
+
+  it('refuses an existing group the account has no link to', async () => {
+    for (const res of [await probe('/probe', { 'x-divvy-group': 'h2' }), await probe('/probe?group=h2')]) {
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe('No household membership');
+    }
+  });
+
+  it('ignores a link whose group does not match its member', async () => {
+    // x1 belongs to h2, but this row claims h1 for it.
+    await db().update(households)
+      .set({ allowedEmailsJson: JSON.stringify([{ email: 'pat@example.com', memberId: 'x1' }]) })
+      .where(eq(households.id, 'h2'));
+    await db().insert(memberAccounts).values({ memberId: 'x1', householdId: 'h1', userId: 'u2', linkedAt: 0 });
+    cookie = await signInAs('u2', 'pat@example.com');
+    for (const res of [await probe('/probe'), await probe('/probe', { 'x-divvy-group': 'h1' })]) {
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe('No household membership');
+    }
+  });
+
+  it('treats an empty group value as no group named', async () => {
+    await linkSecondGroup();
+    for (const res of [await probe('/probe', { 'x-divvy-group': '' }), await probe('/probe?group=')]) {
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: 'Choose a group', reason: 'group_required' });
+    }
+  });
+
+  it('uses the only active group when the other link is archived', async () => {
+    await db().update(householdMembers).set({ archivedAt: 5 }).where(eq(householdMembers.id, 'm1'));
+    await linkSecondGroup();
+    const res = await probe('/probe');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ householdId: 'h2', memberId: 'm9' });
+  });
+
+  it('refuses an account whose only link is archived', async () => {
+    await db().update(householdMembers).set({ archivedAt: 5 }).where(eq(householdMembers.id, 'm1'));
+    const res = await probe('/probe');
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe('Removed from this household');
+  });
+
+  it('refuses an archived link even when its group is named', async () => {
+    await db().update(householdMembers).set({ archivedAt: 5 }).where(eq(householdMembers.id, 'm1'));
+    await linkSecondGroup();
+    const res = await probe('/probe', { 'x-divvy-group': 'h1' });
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe('Removed from this household');
+  });
+
+  it('resolves the scope once per request', async () => {
+    const res = await probe('/probe-twice');
+    expect(await res.json()).toEqual({ same: true });
+  });
+
+  it('keeps the reason, no-store and security headers on the real app', async () => {
+    await linkSecondGroup();
+    const res = await workerApp.request('http://localhost/api/bootstrap', { headers: { Cookie: cookie } }, testEnv);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Choose a group', reason: 'group_required' });
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
   });
 });
 
