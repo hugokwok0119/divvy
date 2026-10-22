@@ -15,14 +15,15 @@ interface ReminderCalendarProps {
   cards: Card[];
   members: Member[];
   timezone: string;
+  rentReminder: boolean;
 }
 
 /** Current-month statement and rent reminders with shared, manual ticks. */
-export default function ReminderCalendar({ cards, members, timezone }: ReminderCalendarProps) {
+export default function ReminderCalendar({ cards, members, timezone, rentReminder }: ReminderCalendarProps) {
   const today = todayIn(timezone);
   const monthKey = today.slice(0, 7);
   const [year, month] = monthKey.split('-').map(Number);
-  const reminders = monthReminders(year, month, cards);
+  const reminders = monthReminders(year, month, cards, rentReminder);
   const colors = distinctColors(reminders.flatMap((r) => r.cardId ?? []));
   const colorOf = (r: Reminder) => (r.cardId ? colors[r.cardId] : RENT_COLOR);
   const lastDay = Number(statementDateFor(year, month, 31).slice(8));

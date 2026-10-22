@@ -41,7 +41,7 @@ function mount({ cards = [card], members: people = members, customCategories = [
   api.updateHousehold = async (patch) => { households.push(patch); return patch; };
   api.upsertCard = async (input) => { saved.push(input); if (release === null) await new Promise<void>((resolve) => { release = resolve; }); return input; };
   api.previewCardHistory = async (input) => { previews.push(input); return { cycles: 1, expenses: 2 }; };
-  flushSync(() => root.render(<SettingsPage members={people} cards={cards} customCategories={customCategories} role="owner"
+  flushSync(() => root.render(<SettingsPage members={people} cards={cards} customCategories={customCategories} rentReminder role="owner"
     onBack={() => {}} onChanged={async () => {}} showToast={(message) => { toasts.push(message); }} />));
   const set = (element: HTMLInputElement | HTMLSelectElement, value: string) => flushSync(() => {
     const proto = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;

@@ -5,7 +5,7 @@ import { categoryOptions, generateId } from '../constants';
 import { parseAmountToCents, formatCentsWithSymbol, MAX_AMOUNT_CENTS } from '../lib/money';
 import { parseCsv } from '../lib/csv';
 import { findExplicitCategoryPreference } from '../lib/category';
-import { ApiError } from '../lib/api';
+import { ApiError, groupHeaders } from '../lib/api';
 import { isDemoMode } from '../lib/demo-mode';
 import { MAX_UPLOAD_BYTES } from '../../worker/lib/gemini';
 import { Upload, Plus, Loader2, Star, CreditCard, User, X, RotateCw } from 'lucide-react';
@@ -30,10 +30,13 @@ interface InputSectionProps {
   categoryPreferences: Record<string, string>;
   starredTransactions: Transaction[];
   showToast: (message: string, type?: 'error' | 'success') => void;
+  groupName: string;
+  onChangeGroup(): void;
 }
 
 const InputSection: React.FC<InputSectionProps> = ({
   onAddToQueue, members, cards, customCategories, categoryPreferences, starredTransactions, showToast,
+  groupName, onChangeGroup,
 }) => {
   const [activeTab, setActiveTab] = useState<InputTab>('upload');
   const [loading, setLoading] = useState(false);
@@ -129,6 +132,7 @@ const InputSection: React.FC<InputSectionProps> = ({
       const res = await fetch('/api/ai/parse-receipt', {
         method: 'POST',
         body: file,
+        headers: groupHeaders(),
         signal,
       });
       if (!res.ok) {
@@ -143,6 +147,7 @@ const InputSection: React.FC<InputSectionProps> = ({
           date: string | null; store: string | null; amountCents: number | null; category: string | null;
         }>;
       }>();
+      signal.throwIfAborted();
       const drafts = result.transactions ?? [result];
       if (drafts.length === 0) throw new Error('No transactions found in that file.');
 
@@ -196,6 +201,8 @@ const InputSection: React.FC<InputSectionProps> = ({
   };
 
   const handleCancelScan = () => scanControllerRef.current?.abort();
+  // App remounts this section when the group changes: a scan in flight must not land in the new group.
+  useEffect(() => () => scanControllerRef.current?.abort(), []);
   const handleRetryScan = () => {
     if (retryFile) void handleFilesUpload([retryFile]);
   };
@@ -248,6 +255,7 @@ const InputSection: React.FC<InputSectionProps> = ({
     try {
       for (let index = 0; index < files.length; index++) {
         const file = files[index];
+        controller.signal.throwIfAborted();
         setFileProgress({ current: index + 1, total: files.length, name: file.name });
         // Sequential processing keeps AI quota predictable and lets each PDF
         // reconcile against its own statement total.
@@ -292,6 +300,10 @@ const InputSection: React.FC<InputSectionProps> = ({
 
       {/* 1. Global Context Block */}
       <div className="bg-slate-50 p-4 border-b border-slate-200">
+        <p className="mb-3 flex flex-wrap items-center gap-x-1 text-body2 text-slate-600">
+          <span className="min-w-0 break-words">Importing into <span className="font-semibold text-slate-800">{groupName}</span></span>
+          <button type="button" onClick={onChangeGroup} className="min-h-7 pointer-coarse:min-h-11 rounded px-1 font-semibold text-blue-700 hover:underline">Change</button>
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="input-payer" className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">

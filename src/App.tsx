@@ -3,11 +3,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Settings, History, LogOut, RotateCcw, TrendingUp } from 'lucide-react';
 
 import { signOut, useSession } from './lib/auth-client';
-import { api, ApiError } from './lib/api';
+import { api, ApiError, currentGroupId, setCurrentGroup } from './lib/api';
+import { pickGroup } from './lib/groups';
 import { computeSettlement } from './lib/settlement';
 import { formatCentsWithSymbol, cycleGroupsOf, cycleName } from './lib/money';
 import { generateId, CATEGORIES, categoryOptions } from './constants';
-import type { Bootstrap, TxInput, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
+import type { Bootstrap, GroupSummary, TxInput, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
 import { LoginPage } from './components/auth/LoginPage';
 import { useToast, Toast } from './components/Toast';
 import InputSection from './components/InputSection';
@@ -18,6 +19,8 @@ import SettingsPage from './components/SettingsPage';
 import HistoryPage from './components/HistoryModal';
 import AnalyticsPage from './components/AnalyticsPage';
 import CycleName from './components/CycleName';
+import GroupSwitcher from './components/GroupSwitcher';
+import NewGroupCard from './components/NewGroupCard';
 
 type View = 'dashboard' | 'history' | 'settings' | 'analytics';
 
@@ -38,6 +41,16 @@ const App: React.FC = () => {
     setHowItWorksOpen(true);
   };
 
+  const [groupList, setGroupList] = useState<{ groups: GroupSummary[]; canCreate: boolean } | null>(null);
+  const [choosingGroup, setChoosingGroup] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  // Reload on open so pending counts are fresh; a failed reload keeps the cached list.
+  const openSwitcher = useCallback((open: boolean) => {
+    setSwitcherOpen(open);
+    if (open) api.groups().then(setGroupList, () => {});
+  }, []);
+
   const refresh = useCallback(() => {
     // Each mutation waits for its own snapshot, after earlier refreshes finish.
     const queued = refreshQueue.current.then(async () => {
@@ -46,19 +59,44 @@ const App: React.FC = () => {
         setLoadError(null);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) { setData(null); return; }
+        if (err instanceof ApiError && err.reason === 'group_required') {
+          setCurrentGroup(null);
+          setData(null);
+          setChoosingGroup(true);
+          openSwitcher(true);
+          return;
+        }
         setLoadError(err instanceof Error ? err.message : 'Could not load your data');
       }
     });
     refreshQueue.current = queued;
     return queued;
-  }, []);
+  }, [openSwitcher]);
 
-  useEffect(() => { if (session || demo) void refresh(); }, [session, demo, refresh]);
+  // Pick a group before the first bootstrap: with several and no valid stored
+  // choice, ask instead of letting the server answer group_required.
+  useEffect(() => {
+    if (!session && !demo) return;
+    void (async () => {
+      let list;
+      try { list = await api.groups(); } catch (err) {
+        if (err instanceof ApiError && err.status === 401) { setData(null); return; }
+        setLoadError(err instanceof Error ? err.message : 'Could not load your groups');
+        return;
+      }
+      setGroupList(list);
+      const pick = pickGroup(currentGroupId(), list.groups);
+      setCurrentGroup(pick);
+      // No group and nothing to create: bootstrap reports why.
+      if (pick || (list.groups.length === 0 && !list.canCreate)) { setChoosingGroup(false); void refresh(); }
+      else { setChoosingGroup(true); setSwitcherOpen(true); }
+    })();
+  }, [session, demo, refresh]);
 
   // Two people may edit at once, so refetch when the tab regains focus rather
   // than acting on a stale total. This is why there are no websockets.
   useEffect(() => {
-    const onFocus = () => { if (session || demo) void refresh(); };
+    const onFocus = () => { if ((session || demo) && currentGroupId()) void refresh(); };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [session, demo, refresh]);
@@ -255,10 +293,52 @@ const App: React.FC = () => {
     } finally { setClosing(false); }
   };
 
+  // --- Groups ---
+  const selectGroup = (id: string) => {
+    setCurrentGroup(id);
+    setChoosingGroup(false);
+    // Filters name the old group's people and cards; a stale one would hide every row.
+    setFilterDateStart(''); setFilterDateEnd(''); setFilterCategory(''); setFilterPayerId(''); setFilterCardId('');
+    setCloseConfirmation(null);
+    void refresh();
+  };
+  const switcher = groupList && (
+    <GroupSwitcher
+      groups={groupList.groups}
+      currentId={currentGroupId()}
+      canCreate={groupList.canCreate}
+      onSelect={selectGroup}
+      onCreate={() => setNewGroupOpen(true)}
+      open={switcherOpen}
+      onOpenChange={openSwitcher}
+    />
+  );
+  const newGroupCard = newGroupOpen && (
+    <NewGroupCard
+      defaultCurrency={data?.household.currencyCode ?? 'CAD'}
+      onClose={() => setNewGroupOpen(false)}
+      onCreated={(group) => {
+        setGroupList((list) => list && { ...list, groups: [...list.groups, group] });
+        setNewGroupOpen(false);
+        selectGroup(group.id);
+      }}
+      restoreFocus={() => document.getElementById('group-switcher')}
+    />
+  );
+
   // In the demo a session refetch (on focus) must not unmount the app.
   if (!demo && isPending) return <div className="min-h-screen grid place-items-center text-slate-500">Loading…</div>;
   if (!demo && !session) return <LoginPage onTryDemo={enterDemo} />;
   if (loadError) return <div className="min-h-screen grid place-items-center text-red-600">{loadError}</div>;
+  if (choosingGroup && !data) return (
+    <div className="min-h-screen bg-slate-50 grid place-items-center p-4">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <h1 className="text-heading1 text-slate-800">Choose a group</h1>
+        {switcher}
+      </div>
+      {newGroupCard}
+    </div>
+  );
   if (!data) return <div className="min-h-screen grid place-items-center text-slate-500">Loading…</div>;
 
   const header = currentView !== 'settings' && (
@@ -266,16 +346,18 @@ const App: React.FC = () => {
       <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           type="button"
-          className="flex items-center gap-2"
+          className="flex shrink-0 items-center gap-2"
           onClick={() => setCurrentView('dashboard')}
         >
           <div className="bg-blue-600 text-white p-1.5 rounded-lg">
             <RotateCcw size={20} aria-hidden="true" />
           </div>
-          <h1 className="font-bold text-heading1 text-slate-800 tracking-tight">Divvy</h1>
+          {/* Below sm the group name needs the room; the heading stays for screen readers. */}
+          <h1 className="sr-only sm:not-sr-only font-bold text-heading1 text-slate-800 tracking-tight">Divvy</h1>
         </button>
+        <div className="ml-2 mr-auto min-w-0 pr-2">{switcher}</div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <button
             onClick={() => setCurrentView('analytics')}
             aria-label="Analytics"
@@ -327,7 +409,10 @@ const App: React.FC = () => {
       ) : header}
       {demo && howItWorksOpen && <demo.HowItWorksCard onClose={() => setHowItWorksOpen(false)} />}
 
-      <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {newGroupCard}
+
+      {/* Keyed by group: every view remounts and refetches when the group changes. */}
+      <main key={data.household.id} className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Toast toast={toast} onClose={clearToast} />
 
         {currentView === 'dashboard' && (
@@ -339,7 +424,7 @@ const App: React.FC = () => {
                 import, ledger, then the summary rendered after the ledger. */}
             <aside aria-label="This month" className={`flex flex-col gap-4 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky ${demo ? 'lg:top-[8.5rem]' : 'lg:top-20'} lg:self-start ${demo ? 'lg:max-h-[calc(100dvh-10.5rem)]' : 'lg:max-h-[calc(100dvh-7rem)]'}`}>
               <div className="flex min-h-0 flex-col">
-                <ReminderCalendar cards={data.cards} members={data.members} timezone={data.household.timezone} />
+                <ReminderCalendar cards={data.cards} members={data.members} timezone={data.household.timezone} rentReminder={data.household.rentReminder} />
               </div>
               <div className="hidden shrink-0 lg:block">
                 <SettlementSummary
@@ -362,6 +447,8 @@ const App: React.FC = () => {
                 categoryPreferences={data.categoryPreferences}
                 starredTransactions={data.transactions.filter((t) => t.isStarred)}
                 showToast={showToast}
+                groupName={data.household.name}
+                onChangeGroup={() => openSwitcher(true)}
               />
             </section>
 
@@ -456,6 +543,7 @@ const App: React.FC = () => {
             members={data.members}
             cards={data.cards}
             customCategories={data.household.customCategories}
+            rentReminder={data.household.rentReminder}
             role={data.me.role}
             onBack={() => setCurrentView('dashboard')}
             onChanged={refresh}

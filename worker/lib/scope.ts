@@ -1211,7 +1211,7 @@ export class ScopedRepository {
   }
 
   async updateHousehold(patch: {
-    name?: string; customCategories?: string[]; allowedEmails?: AllowlistEntry[];
+    name?: string; customCategories?: string[]; allowedEmails?: AllowlistEntry[]; rentReminder?: boolean;
   }) {
     const current = await this.household();
     await this.db.update(households).set({
@@ -1221,6 +1221,7 @@ export class ScopedRepository {
         : current.customCategoriesJson,
       allowedEmailsJson: patch.allowedEmails
         ? JSON.stringify(patch.allowedEmails) : current.allowedEmailsJson,
+      rentReminder: patch.rentReminder === undefined ? current.rentReminder : Number(patch.rentReminder),
     }).where(eq(households.id, this.householdId));
     return this.household();
   }

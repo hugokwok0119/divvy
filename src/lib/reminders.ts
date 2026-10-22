@@ -8,16 +8,17 @@ export interface Reminder {
   date: string;
 }
 
-/** A month's statement reminders for active cards with a day, then the month-end rent reminder. */
+/** A month's statement reminders for active cards with a day, then the month-end rent reminder unless the group turned it off. */
 export function monthReminders(
   year: number, month: number,
   cards: Array<{ id: string; name: string; statementDay: number | null; archived: number }>,
+  rentReminder = true,
 ): Reminder[] {
   return [
     ...cards.filter((c) => !c.archived && c.statementDay != null).map((c) => ({
       id: `card:${c.id}`, cardId: c.id, label: `${c.name} statement`, date: statementDateFor(year, month, c.statementDay!),
     })),
-    { id: 'rent', cardId: null, label: 'Rent', date: statementDateFor(year, month, 31) },
+    ...(rentReminder ? [{ id: 'rent', cardId: null, label: 'Rent', date: statementDateFor(year, month, 31) }] : []),
   ];
 }
 

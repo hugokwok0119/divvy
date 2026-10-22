@@ -135,6 +135,7 @@ export interface Bootstrap {
     id: string; name: string; currencyCode: string; timezone: string;
     customCategories: string[];
     currentCycleName: string | null;
+    rentReminder: boolean;
   };
   members: Member[];
   cards: Card[];
@@ -142,6 +143,16 @@ export interface Bootstrap {
   queue: QueueItem[];
   cycles: Cycle[];
   categoryPreferences: Record<string, string>;
+}
+
+/** One group the signed-in account belongs to, as `GET /api/groups` lists it. */
+export interface GroupSummary {
+  id: string;
+  name: string;
+  role: 'owner' | 'member';
+  memberId: string;
+  peopleCount: number;
+  pendingCount: number;
 }
 
 /** Body shape for POST /api/transactions and the transaction half of queue confirm. */

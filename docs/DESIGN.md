@@ -10,10 +10,14 @@ Divvy is a household expense-splitting app. Members of one household import or e
 expenses, review them together, close a monthly cycle, and settle up. It replaces a
 spreadsheet-style prototype with a shared, auditable ledger.
 
+One account can belong to several groups, such as a household and a trip. The header shows the
+current group, and its menu switches groups or creates a new one.
+
 The main flow:
 
-1. Import a credit-card statement (PDF, read by Gemini) or a CSV export (parsed in the browser),
-   or enter an expense by hand.
+1. Choose a group. With one group there is nothing to choose. Then import a credit-card statement
+   (PDF, read by Gemini) or a CSV export (parsed in the browser), or enter an expense by hand. The
+   import area names the group the rows go into.
 2. Imported rows land in **Pending**. A person checks payer, allocation and possible duplicates,
    then approves each row.
 3. **Approved** rows count toward the live settlement.
@@ -50,7 +54,7 @@ All money is integer cents. Timestamps are epoch milliseconds.
 
 | Table | Holds |
 |---|---|
-| `households` | One household, shown to people as a group: name, currency (CAD), timezone (America/Vancouver), custom categories, sign-in allowlist |
+| `households` | One household, shown to people as a group: name, currency (CAD), timezone (America/Vancouver), custom categories, sign-in allowlist, rent-reminder flag |
 | `household_members` | Participants, their role (`owner` or `member`), display order, and the linked user once they sign in |
 | `member_accounts` | Links an account to a member slot, at most one slot per account in each group, so one account can belong to many groups. Triggers copy `household_members.user_id` into it until that column is dropped |
 | `cards` | Payment cards per member, with an optional statement day for reminders |
@@ -139,6 +143,8 @@ entirely in the browser with a fictional household:
 - Visitors can import fictional sample statements and get recorded extraction results, and can
   edit, delete and approve Pending rows. Everything else is read-only, and a banner says that
   nothing is saved.
+- `GET /api/groups` lists the demo household as the only group, and creating a group is off, so
+  the header shows the household's name and nothing to choose.
 
 ## Delivery
 
@@ -235,3 +241,14 @@ Each entry gives the date, the decision and the reason.
     America/Vancouver day (the app's default time zone) and `DAILY_AI_LIMIT`. The group's own
     counter is checked first, so a group already past its limit does not use up the shared
     allowance.
+19. **2026-10-22. Switch groups from a header menu, and name the group above the import controls.**
+    The switcher is a menu button that lists each group with its pending count and offers New
+    group to the owner. The app remembers the choice in `divvy.groupId`. With several groups and
+    no remembered one, it asks before loading any data, and a `group_required` answer clears the
+    choice and asks again. The import area says which group new rows go into, with a Change button
+    that opens the same menu, because importing into the wrong ledger is the costly mistake.
+    Rejected: a separate groups page (an extra step on every switch) and a default to the first
+    group (the silent wrong-ledger write from entry 17).
+20. **2026-10-22. The rent reminder is a per-group setting.** Existing households keep it on, because
+    the migration adds `rent_reminder` with a default of 1. New groups start with it off, because a
+    trip has no rent. The group owner turns it on or off in Settings, under Reminders.

@@ -194,7 +194,7 @@ export function buildDemoData(samples: SampleResult[]): DemoState {
     bootstrap: {
       me: { memberId: DEMO_IDS.alex, role: 'owner' },
       household: { id: DEMO_IDS.household, name: 'Demo Household', currencyCode: 'CAD',
-        timezone: 'America/Vancouver', customCategories: [], currentCycleName: null },
+        timezone: 'America/Vancouver', customCategories: [], currentCycleName: null, rentReminder: true },
       members,
       cards: [card(DEMO_IDS.visa, DEMO_IDS.alex, 0, 5), card(DEMO_IDS.mastercard, DEMO_IDS.sam, 1, 20)],
       transactions: open.sort(byDateDesc),

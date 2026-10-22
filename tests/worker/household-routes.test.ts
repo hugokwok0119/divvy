@@ -289,6 +289,30 @@ describe('PATCH /api/household custom categories', () => {
   });
 });
 
+describe('PATCH /api/household rent reminder', () => {
+  const patch = async (body: unknown) => {
+    await db().update(householdMembers).set({ role: 'owner', userId: 'u1' }).where(eq(householdMembers.id, 'm1'));
+    const cookie = await signInAs('u1', 'owner@example.com');
+    const res = await workerApp.request('http://localhost/api/household', {
+      method: 'PATCH', headers: { 'content-type': 'application/json', Cookie: cookie }, body: JSON.stringify(body),
+    }, testEnv);
+    return { res, cookie };
+  };
+
+  it('saves the rent reminder setting', async () => {
+    const { res, cookie } = await patch({ rentReminder: false });
+    expect(res.status).toBe(200);
+    const boot = await workerApp.request('http://localhost/api/bootstrap', { headers: { Cookie: cookie } }, testEnv);
+    expect(((await boot.json()) as { household: { rentReminder: boolean } }).household.rentReminder).toBe(false);
+  });
+
+  it('rejects a non-boolean rent reminder', async () => {
+    const { res } = await patch({ rentReminder: 0 });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { fields: Record<string, string> }).fields.rentReminder).toBeTruthy();
+  });
+});
+
 describe('settings order and card delete', () => {
   const call = (path: string, cookie: string, method: string, body?: unknown) => workerApp.request(`http://localhost/api${path}`, {
     method, headers: { 'content-type': 'application/json', Cookie: cookie }, body: body === undefined ? undefined : JSON.stringify(body),
