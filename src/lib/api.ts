@@ -127,7 +127,7 @@ export const api = {
       method: 'POST', body: JSON.stringify(input),
     }),
 
-  renameCycle: (id: string | 'current', name: string | null) =>
+  renameCycle: (id: string, name: string | null) =>
     request<unknown>(`/api/cycles/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
 
   settleCycle: (id: string) =>
