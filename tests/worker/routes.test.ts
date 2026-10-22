@@ -85,8 +85,8 @@ describe('security headers', () => {
     const csp = res.headers.get('content-security-policy');
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain('https://fonts.googleapis.com');
-    expect(csp).toContain('https://fonts.gstatic.com');
+    expect(csp).toContain("font-src 'self';");
+    expect(csp).not.toContain('fonts.googleapis.com');
   };
 
   it('applies to an API route', async () => {
