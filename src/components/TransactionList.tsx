@@ -71,6 +71,8 @@ export interface TransactionListProps {
   minDate?: string;
   maxDate?: string;
   readOnly?: boolean;
+  /** The group client saves go through; a section for another group passes apiFor(itsId). */
+  client?: typeof api;
 }
 type SortKey = 'date' | 'store' | 'category' | 'amount';
 export function sortAriaValue(
@@ -101,6 +103,7 @@ export default function TransactionList(props: TransactionListProps) {
     categoryPreferences,
     readOnly = false,
     showToast,
+    client = api,
   } = props;
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
@@ -1175,7 +1178,7 @@ export default function TransactionList(props: TransactionListProps) {
           suggestions={suggestions}
           onClose={() => setSuggestionsOpen(false)}
           onApply={async (updates) => {
-            const result = await api.applyCategorySuggestions(
+            const result = await client.applyCategorySuggestions(
               updates.map((update) => ({
                 ...update,
                 revision: transactions.find((tx) => tx.id === update.id)!.revision,

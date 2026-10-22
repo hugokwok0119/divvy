@@ -4,11 +4,11 @@ import { Settings, History, LogOut, RotateCcw, TrendingUp } from 'lucide-react';
 
 import { signOut, useSession } from './lib/auth-client';
 import { api, ApiError, currentGroupId, setCurrentGroup } from './lib/api';
-import { pickGroup } from './lib/groups';
+import { pendingSectionIds, pickGroup } from './lib/groups';
 import { computeSettlement } from './lib/settlement';
 import { formatCentsWithSymbol, cycleGroupsOf, cycleName } from './lib/money';
 import { generateId, CATEGORIES, categoryOptions } from './constants';
-import type { Bootstrap, GroupSummary, TxInput, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
+import type { Bootstrap, GroupSummary, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
 import { LoginPage } from './components/auth/LoginPage';
 import { useToast, Toast } from './components/Toast';
 import InputSection from './components/InputSection';
@@ -23,6 +23,7 @@ import GroupSwitcher from './components/GroupSwitcher';
 import SplittingWith from './components/SplittingWith';
 import { permissionsFor } from './lib/permissions';
 import NewGroupCard from './components/NewGroupCard';
+import GroupPendingSection, { confirmQueueItemWith, GroupPendingHeader } from './components/GroupPendingSection';
 
 type View = 'dashboard' | 'history' | 'settings' | 'analytics';
 
@@ -47,6 +48,8 @@ const App: React.FC = () => {
   const [choosingGroup, setChoosingGroup] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+  // Bumped on focus so other groups' Pending sections refetch with the current one.
+  const [sectionReloadKey, setSectionReloadKey] = useState(0);
   // Reload on open so pending counts are fresh; a failed reload keeps the cached list.
   const openSwitcher = useCallback((open: boolean) => {
     setSwitcherOpen(open);
@@ -98,7 +101,13 @@ const App: React.FC = () => {
   // Two people may edit at once, so refetch when the tab regains focus rather
   // than acting on a stale total. This is why there are no websockets.
   useEffect(() => {
-    const onFocus = () => { if ((session || demo) && currentGroupId()) void refresh(); };
+    const onFocus = () => {
+      if (!(session || demo) || !currentGroupId()) return;
+      void refresh();
+      // Fresh counts also add a section for a group that gained Pending rows elsewhere.
+      api.groups().then(setGroupList, () => {});
+      setSectionReloadKey((key) => key + 1);
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [session, demo, refresh]);
@@ -254,16 +263,7 @@ const App: React.FC = () => {
   };
 
   const handleConfirmQueueItem = async (item: QueueItem) => {
-    if (!item.date || !item.store?.trim() || item.amountCents == null || !item.category || !item.payerId || !['equal', 'single', 'custom'].includes(item.splitType ?? '')) {
-      throw new Error('Fill in date, store, amount, category, payer and split before approving.');
-    }
-    const input: TxInput = {
-      id: generateId(), date: item.date, store: item.store, amountCents: item.amountCents,
-      category: item.category, payerId: item.payerId, cardId: item.cardId,
-      splitType: item.splitType as TxInput['splitType'],
-      splitRule: item.splitRuleJson ? JSON.parse(item.splitRuleJson) : null,
-    };
-    const saved = await api.confirmQueueItem(item.id, input.id, input, item.revision);
+    const saved = await confirmQueueItemWith(api, item);
     await refresh();
     return saved;
   };
@@ -481,6 +481,8 @@ const App: React.FC = () => {
                 <button role="tab" aria-selected={ledgerTab === 'pending'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('pending')}>Pending ({data.queue.length})</button>
                 <button role="tab" aria-selected={ledgerTab === 'approved'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'approved' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('approved')}>Approved ({data.transactions.length})</button>
               </div>
+              <section aria-labelledby={ledgerTab === 'pending' ? `pending-group-${data.household.id}` : undefined}>
+              {ledgerTab === 'pending' && <GroupPendingHeader id={`pending-group-${data.household.id}`} name={data.household.name} members={data.members} />}
               <TransactionList
                 transactions={data.transactions}
                 pendingItems={data.queue}
@@ -515,6 +517,16 @@ const App: React.FC = () => {
                 minDate={minDate}
                 maxDate={maxDate}
               />
+              </section>
+              {ledgerTab === 'pending' && groupList && pendingSectionIds(groupList.groups, data.household.id).slice(1).map((id) => (
+                <GroupPendingSection
+                  key={id}
+                  group={groupList.groups.find((g) => g.id === id)!}
+                  reloadKey={sectionReloadKey}
+                  onChanged={() => { api.groups().then(setGroupList, () => {}); }}
+                  showToast={showToast}
+                />
+              ))}
             </section>
             {/* Below lg the summary comes last, after review; display:none keeps one copy in the a11y tree. */}
             <div className="lg:hidden">
