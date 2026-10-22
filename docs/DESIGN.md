@@ -96,6 +96,14 @@ expense ids and claims them in one D1 batch. If any id is already claimed, the w
 rejected, so a double click or a race cannot close a cycle twice or partly. Corrections after
 settling are new adjustment expenses in the current cycle.
 
+A closed or settled cycle can be shared as an image, so people without app access, such as
+temporary trip members, can check their part. **Download summary** in the History detail opens a
+dialog that builds one JPG in the browser from data History already loads. Nothing is stored and
+the server is not involved. By default the image shows Settle up and each person's Paid, Share and
+Net. **Detailed grid view** adds every item, with each person's exact stored share in their own
+column. A share that took a leftover cent is marked with an asterisk. Every list of people uses
+member order.
+
 ## Security boundary
 
 D1 has no row-level security, so tenant isolation lives in one place in application code.
@@ -140,6 +148,8 @@ The full list is in `AGENTS.md`. In short:
   (14px) and Body 2 (12px).
 - Split controls use the member's exact color when selected, dark gray for equal and purple for
   custom.
+- Member colors come from the 20-color list in `src/lib/memberColors.ts`, assigned by member
+  order. Colors repeat from the 21st member.
 
 ## Decision log
 
@@ -177,3 +187,16 @@ Each entry gives the date, the decision and the reason.
     rejected.
 11. **2026-10-16. Public commits use the GitHub noreply address.** Personal email addresses stay
     out of public commit metadata.
+12. **2026-10-21. Share a cycle as a client-side JPG with one column per person.** The summary
+    renders as a React component and `html-to-image` turns it into a JPG, loaded only when someone
+    downloads. Inter is fetched and inlined for the export, because the library cannot read the
+    cross-origin Google Fonts stylesheet. A one-column-per-person grid lets each person read
+    straight down their own column, and each column adds up to their share. Rejected: drawing
+    the image by hand on a canvas (much more code), a server-rendered image (a server change for a
+    one-off share), and listing shares under each item (hard to find your own name as the group
+    grows).
+13. **2026-10-21. Use 20 hand-picked member colors.** The first five are unchanged, so existing
+    members keep their colors, and the new fifteen avoid the app's own `indigo-600`, `green-700`
+    and `slate-600`. Rejected: darker tiers of the first five (each tier looks like its base color
+    and stays near the app's blues and reds), and a generated golden-angle palette (unlimited, but
+    it clusters into look-alike families once the app's hues are excluded).
