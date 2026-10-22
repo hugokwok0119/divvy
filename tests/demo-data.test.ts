@@ -26,6 +26,7 @@ describe('buildDemoData', () => {
     expect(bootstrap.me).toEqual({ memberId: 'mem_alex', role: 'owner' });
     expect(bootstrap.household).toEqual({
       id: 'hh_demo', name: 'Demo Household', currencyCode: 'CAD', timezone: 'America/Vancouver', customCategories: [],
+      currentCycleName: null,
     });
     expect(bootstrap.members.map(({ id, displayName, role, sortOrder }) => ({ id, displayName, role, sortOrder }))).toEqual([
       { id: 'mem_alex', displayName: 'Alex', role: 'owner', sortOrder: 0 },

@@ -4,10 +4,11 @@ import { Member, Card, Cycle, CycleGroup, Settlement, Transaction, TxPatch, Clos
 import { api, ApiError } from '../lib/api';
 import {
   formatCentsWithSymbol, closedDateOf, cycleGroupLabel,
-  disambiguatedClosedDates, summarizeCycleTransactions,
+  disambiguatedClosedDates, summarizeCycleTransactions, cycleName,
 } from '../lib/money';
 import { ArrowLeft, Calendar, ChevronRight, ChevronDown, CheckCircle, Download, Edit2, Lock, X } from 'lucide-react';
 import TransactionList from './TransactionList';
+import CycleName from './CycleName';
 import CycleSummaryDialog from './CycleSummaryDialog';
 import { buildCycleSummary } from '../lib/cycleSummary';
 import { permissionsFor, type Role } from '../lib/permissions';
@@ -266,7 +267,9 @@ const HistoryPage: React.FC<Props> = ({ members, cards, categories, role, onBack
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
               {visibleList.map((cycle) => {
                 const labels = groupLabels[cycle.id] ?? [];
-                const title = labels[0]?.label ?? 'No expenses';
+                const title = cycleName(cycle.name, cycle.groups, cycle.closedAt, members, cards);
+                // A saved name replaces the first group label, so every group moves under "more".
+                const more = cycle.name ? labels.length : labels.length - 1;
                 const closed = closedLabels[cycle.id] ?? closedDateOf(cycle.closedAt);
                 const selected = selectedCycleId === cycle.id;
                 return (
@@ -282,7 +285,7 @@ const HistoryPage: React.FC<Props> = ({ members, cards, categories, role, onBack
                   type="button"
                   onClick={() => { setSelectedCycleId(cycle.id); setIsEditing(false); }}
                   aria-pressed={selected}
-                  aria-label={`${title}${labels.length > 1 ? ` and ${labels.length - 1} more` : ''}, closed ${closed}, ${cycle.status === 'settled' ? 'settled' : 'not settled'}`}
+                  aria-label={`${title}${more > 0 ? ` and ${more} more` : ''}, closed ${closed}, ${cycle.status === 'settled' ? 'settled' : 'not settled'}`}
                   className="w-full text-left cursor-pointer rounded-xl p-4 group"
                 >
                   <div className="flex justify-between items-start gap-2 mb-2">
@@ -315,9 +318,9 @@ const HistoryPage: React.FC<Props> = ({ members, cards, categories, role, onBack
                     Include in outstanding total
                   </label>
                 )}
-                {labels.length > 1 && (
+                {more > 0 && (
                   <details className="px-4 pb-3 text-body2 text-slate-600">
-                    <summary className="cursor-pointer font-semibold text-blue-700">+{labels.length - 1} more</summary>
+                    <summary className="cursor-pointer font-semibold text-blue-700">+{more} more</summary>
                     <ul className="mt-1 space-y-1 break-words">
                       {labels.map((g, i) => <li key={i}>{groupText(g)}</li>)}
                     </ul>
@@ -409,6 +412,16 @@ const HistoryPage: React.FC<Props> = ({ members, cards, categories, role, onBack
               </div>
 
               <div className="text-sm space-y-2">
+                <CycleName
+                  name={detail.cycle.name}
+                  defaultName={cycleName(null, cycleList?.find((cy) => cy.id === detail.cycle.id)?.groups ?? [], detail.cycle.closedAt, members, cards)}
+                  label="this cycle"
+                  className="text-heading2 text-slate-800"
+                  onSave={async (name) => {
+                    await api.renameCycle(detail.cycle.id, name);
+                    await Promise.all([loadList(), loadDetail(detail.cycle.id)]);
+                  }}
+                />
                 <ul aria-label="Payer and card groups" className="text-body1 font-semibold text-slate-800 space-y-1 break-words">
                   {(groupLabels[detail.cycle.id] ?? []).map((g, i) => <li key={i}>{groupText(g)}</li>)}
                 </ul>

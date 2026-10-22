@@ -319,6 +319,9 @@ describe('collaborative expense lifecycle', () => {
     await env.DB.batch(migration.queries.map((q) => env.DB.prepare(q)));
     expect(await repo().requireCycle('old-cycle')).toMatchObject({ id: 'old-cycle', status: 'settled', settlementJson: settlement, closedAt: 11, settledAt: 22, closedByMemberId: null, closedByName: null, closingSnapshotJson: null });
     expect(await repo().cycleSettlement('old-cycle')).toEqual(JSON.parse(settlement));
+    // Later migrations alter cycles too; replay them so the following tests see the current shape.
+    const later = TEST_MIGRATIONS.filter((m) => m.name > migration.name).flatMap((m) => m.queries).filter((q) => /ALTER TABLE `cycles`/.test(q));
+    await env.DB.batch(later.map((q) => env.DB.prepare(q)));
   });
 
   it('backfills unchanged legacy values with unknown actors and complete labeled baselines', async () => {

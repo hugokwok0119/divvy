@@ -131,6 +131,35 @@ export function cycleGroupLabel(
   };
 }
 
+const byText = (a: string | null, b: string | null) => ((a ?? '') < (b ?? '') ? -1 : (a ?? '') > (b ?? '') ? 1 : 0);
+
+/** Payer/card groups of expenses, in the server's cycleGroups order: most expenses, earliest, payer, card. */
+export function cycleGroupsOf(
+  transactions: Array<{ payerId: string; cardId: string | null; cardNameSnapshot: string | null; date: string }>,
+): CycleGroup[] {
+  const groups = new Map<string, CycleGroup>();
+  for (const tx of transactions) {
+    const key = JSON.stringify([tx.payerId, tx.cardId, tx.cardNameSnapshot]);
+    const group = groups.get(key);
+    if (!group) {
+      groups.set(key, { payerId: tx.payerId, cardId: tx.cardId, cardNameSnapshot: tx.cardNameSnapshot, dateStart: tx.date, dateEnd: tx.date, count: 1 });
+      continue;
+    }
+    group.count += 1;
+    if (tx.date < group.dateStart) group.dateStart = tx.date;
+    if (tx.date > group.dateEnd) group.dateEnd = tx.date;
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count || byText(a.dateStart, b.dateStart)
+    || byText(a.payerId, b.payerId) || byText(a.cardId, b.cardId));
+}
+
+/** The saved cycle name, else the History label of its first payer/card group. */
+export function cycleName(
+  name: string | null, groups: CycleGroup[], closedAt: number, members: Member[], cards: Card[],
+): string {
+  return name ?? (groups[0] ? cycleGroupLabel(groups[0], closedAt, members, cards).label : 'No expenses');
+}
+
 /** Stable cycle label like "May 2024", derived from closedAt. Reuses
  * formatMonthLabel so cycle and analytics month formatting never drift. */
 export function cycleMonthLabel(closedAtMs: number): string {

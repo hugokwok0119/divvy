@@ -596,6 +596,15 @@ export function validateHouseholdPatch(body: unknown): { value: Record<string, u
   return { value, fields: {} };
 }
 
+/** `{ name }` where null resets a cycle to its default label. */
+export function validateCycleName(body: unknown): { value: { name: string | null } | null; fields: Fields } {
+  if (!isPlainObject(body) || !('name' in body)) return { value: null, fields: { name: 'Expected a name or null' } };
+  if (body.name === null) return { value: { name: null }, fields: {} };
+  const name = trimmedString(body.name, NAME_MAX_LEN);
+  if (name === null) return { value: null, fields: { name: `Expected 1 to ${NAME_MAX_LEN} characters, or null` } };
+  return { value: { name }, fields: {} };
+}
+
 export const REMINDER_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** Body of PUT /api/reminders: one manual tick or untick for a month's reminder. */

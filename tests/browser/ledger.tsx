@@ -68,6 +68,7 @@ const initial: Bootstrap = {
     currencyCode: 'CAD',
     timezone: 'America/Vancouver',
     customCategories: [],
+    currentCycleName: null,
   },
   members: [
     {
@@ -235,6 +236,7 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
     closingSnapshotJson: options.legacy ? null : JSON.stringify({ transactions: [{ ...approved, state: 'approved' }], members: initial.members }),
     closedAt: 0,
     settledAt: null,
+    name: null,
   };
   api.cycles = async () => [{ ...fixtureCycle, settlement: { balances: {}, transfers: [] }, groups: [] }];
   api.cycle = async () => ({

@@ -25,9 +25,9 @@ const closingSnapshot: ClosingSnapshot = { transactions: [original], members };
 const settlement = { balances: { m1: 4800, m2: -4800 }, transfers: [{ from: 'm2', to: 'm1', amountCents: 4800 }] };
 const cycles: Cycle[] = [
   { id: 'closed-cycle', status: 'closed', settlementJson: null, closedByMemberId: 'm1', closedByName: 'Alex',
-    closingSnapshotJson: JSON.stringify(closingSnapshot), closedAt: 1791806400000, settledAt: null },
+    closingSnapshotJson: JSON.stringify(closingSnapshot), closedAt: 1791806400000, settledAt: null, name: null },
   { id: 'paid-cycle', status: 'settled', settlementJson: JSON.stringify(settlement), closedByMemberId: 'm1', closedByName: 'Alex',
-    closingSnapshotJson: JSON.stringify(closingSnapshot), closedAt: 1791720000000, settledAt: 1791892800000 },
+    closingSnapshotJson: JSON.stringify(closingSnapshot), closedAt: 1791720000000, settledAt: 1791892800000, name: null },
 ];
 const events: ExpenseHistoryEvent[] = [
   { id: 'edited', expenseId: 'e1', eventType: 'edited', actorMemberId: 'm2', actorName: 'Sam',

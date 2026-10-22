@@ -5,7 +5,7 @@ import { Settings, History, LogOut, RotateCcw, TrendingUp } from 'lucide-react';
 import { signOut, useSession } from './lib/auth-client';
 import { api, ApiError } from './lib/api';
 import { computeSettlement } from './lib/settlement';
-import { formatCentsWithSymbol } from './lib/money';
+import { formatCentsWithSymbol, cycleGroupsOf, cycleName } from './lib/money';
 import { generateId, CATEGORIES, categoryOptions } from './constants';
 import type { Bootstrap, TxInput, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
 import { LoginPage } from './components/auth/LoginPage';
@@ -17,6 +17,7 @@ import ReminderCalendar from './components/ReminderCalendar';
 import SettingsPage from './components/SettingsPage';
 import HistoryPage from './components/HistoryModal';
 import AnalyticsPage from './components/AnalyticsPage';
+import CycleName from './components/CycleName';
 
 type View = 'dashboard' | 'history' | 'settings' | 'analytics';
 
@@ -359,7 +360,17 @@ const App: React.FC = () => {
             </section>
 
             <section className="min-w-0">
-              <h2 className="text-heading2 font-bold text-slate-800 mb-3">Ledger</h2>
+              <h2 className="text-heading2 font-bold text-slate-800">Ledger</h2>
+              <div className="mb-3 flex flex-wrap items-center gap-x-2">
+                <span className="text-body2 text-slate-500">Current cycle</span>
+                <CycleName
+                  name={data.household.currentCycleName}
+                  // Infinity: an open cycle never takes a card's retrospective history label.
+                  defaultName={cycleName(null, cycleGroupsOf(data.transactions), Infinity, data.members, data.cards)}
+                  label="current cycle"
+                  onSave={async (name) => { await api.renameCycle('current', name); await refresh(); }}
+                />
+              </div>
               <div role="tablist" aria-label="Ledger views" className="flex gap-2 mb-4 border-b border-slate-200">
                 <button role="tab" aria-selected={ledgerTab === 'pending'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('pending')}>Pending ({data.queue.length})</button>
                 <button role="tab" aria-selected={ledgerTab === 'approved'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'approved' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('approved')}>Approved ({data.transactions.length})</button>
