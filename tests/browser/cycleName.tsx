@@ -60,6 +60,7 @@ await check('Escape dismisses unsaved input and restores focus', async (view) =>
   view.opener()!.focus(); view.click(view.opener()); await flush();
   assert(view.dialog()?.open && view.dialog()!.textContent!.includes('Rename cycle'), 'Rename card did not open');
   assert(view.input()?.placeholder === DEFAULT && view.input()!.value === '', 'Input should be blank with the default as placeholder');
+  assert(document.activeElement === view.input(), `Opening focused ${document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName}, not the name field`);
   view.set('October'); view.escape(); await flush();
   assert(!view.dialog() && view.saves.length === 0, 'Escape saved or stayed open');
   assert(document.activeElement === view.opener(), `Focus went to ${document.activeElement?.tagName}`);

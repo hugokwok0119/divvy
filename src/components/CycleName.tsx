@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { ModalCard, secondaryButton } from './ModalCard';
 
@@ -19,6 +19,10 @@ const CycleName: React.FC<Props> = ({ name, defaultName, label, onSave, classNam
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const opener = useRef<HTMLButtonElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const open = draft !== null;
+  // After ModalCard's showModal(), which would otherwise move focus to its Close button.
+  useEffect(() => { if (open) input.current?.focus(); }, [open]);
   const formId = useId();
   const inputId = useId();
 
@@ -66,7 +70,7 @@ const CycleName: React.FC<Props> = ({ name, defaultName, label, onSave, classNam
             <label htmlFor={inputId} className="block text-body2 font-semibold text-slate-600">Cycle name</label>
             <input
               id={inputId}
-              autoFocus
+              ref={input}
               maxLength={80}
               value={draft}
               placeholder={defaultName}
