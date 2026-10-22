@@ -1261,9 +1261,13 @@ export interface Scope {
 }
 
 /** Matches resolveSignIn's normalization: trimmed, case-insensitive. */
+export function isOwnerEmail(email: string, ownerEmail: string): boolean {
+  return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+}
+
 function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: string): boolean {
+  if (isOwnerEmail(email, ownerEmail)) return true;
   const normalized = email.trim().toLowerCase();
-  if (normalized === ownerEmail.trim().toLowerCase()) return true;
   const allowlist: AllowlistEntry[] = JSON.parse(allowedEmailsJson);
   return allowlist.some((e) => e.email.trim().toLowerCase() === normalized);
 }

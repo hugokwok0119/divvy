@@ -9,6 +9,8 @@ import workerApp, { type Env } from '../../worker/index';
 
 describe('unauthenticated access', () => {
   const protectedRoutes: Array<[string, string]> = [
+    ['GET', '/api/groups'],
+    ['POST', '/api/groups'],
     ['GET', '/api/bootstrap'],
     ['GET', '/api/transactions'],
     ['POST', '/api/transactions'],
