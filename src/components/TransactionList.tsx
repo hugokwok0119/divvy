@@ -8,6 +8,7 @@ import { api, ApiError } from '../lib/api';
 import { amountWeightsError, customPercentagesError, formatPercentage, parsePercentageDraft, percentagesFromAmounts } from '../lib/percentages';
 import { buildCategorySuggestions } from '../lib/category';
 import { isDemoMode } from '../lib/demo-mode';
+import { memberColorAt } from '../lib/memberColors';
 import CategorySuggestions from './CategorySuggestions';
 import ExpenseHistory from './ExpenseHistory';
 import { Check, Eye, EyeOff, Filter, History, Pencil, Scissors, Star, Trash2, Undo2, Users, ArrowUpDown, FileText, X } from 'lucide-react';
@@ -671,7 +672,7 @@ export default function TransactionList(props: TransactionListProps) {
   };
   const memberColor = (id: string) => {
     const index = members.findIndex((member) => member.id === id);
-    return index < 0 ? color(id) : ['#f59e0b', '#3b82f6', '#ec4899', '#84cc16', '#8b5cf6'][index % 5];
+    return index < 0 ? color(id) : memberColorAt(index);
   };
   const categoryColor = (name: string) => ({
     Groceries: '#10b981', Dining: '#f97316', Utilities: '#3b82f6', Rent: '#6366f1',
