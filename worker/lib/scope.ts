@@ -1224,9 +1224,16 @@ export class ScopedRepository {
     return this.household();
   }
 
-  /** Returns false when the household is over its daily AI-usage allowance. */
+  /**
+   * Returns false when the household, or the app as a whole, is over its daily
+   * AI-usage allowance. Every group shares one free-tier Gemini key, so the
+   * `all` counter caps scans across groups on the Pacific day.
+   */
   async checkAiQuota(usageDate: string, limit = DAILY_AI_LIMIT): Promise<boolean> {
-    return checkAndIncrement(this.db, this.householdId, usageDate, limit);
+    // Group first, so a group past its own cap does not spend the shared allowance.
+    if (!await checkAndIncrement(this.db, this.householdId, usageDate, limit)) return false;
+    const pacificDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver' }).format(new Date());
+    return checkAndIncrement(this.db, 'all', pacificDate, DAILY_AI_LIMIT);
   }
 
   /** Full dump for the Download my data button. Auth tables are never included. */

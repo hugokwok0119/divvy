@@ -37,7 +37,10 @@ aiRoutes.post('/parse-receipt', async (c) => {
   // file, etc.) still consumes the day's allowance same as a successful one.
   // Every attempt costs a real Gemini request whether or not it succeeds, and
   // a retry-on-failure loop that didn't count against quota would make the
-  // limit meaningless. checkAiQuota only exposes an atomic check-and-increment
+  // limit meaningless. The attempt counts against the household's day and,
+  // when the household is within its limit, against the app-wide `all`
+  // counter on the Pacific day, since every group shares one Gemini key.
+  // checkAiQuota only exposes atomic check-and-increments
   // (worker/lib/ratelimit.ts, outside this route's ownership); refunding
   // quota on failure would need a separate decrement path there.
   const withinLimit = await scope.repo.checkAiQuota(today);

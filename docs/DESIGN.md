@@ -35,9 +35,11 @@ The main flow:
 The browser never holds the Gemini key and never talks to Gemini. Statement uploads go to
 `POST /api/ai/parse-receipt`, which checks the session first, caps uploads at 5 MB, verifies the
 file signature, and rate-limits each household to 10 AI requests per day (`DAILY_AI_LIMIT` in
-`worker/lib/ratelimit.ts`). For a PDF statement, the Worker checks the extracted rows against the
-statement's own printed total and refuses a result that does not reconcile. CSV files are parsed
-in the browser and never sent to Gemini.
+`worker/lib/ratelimit.ts`). Every group shares one free-tier Gemini key, so the same limit also
+applies across all groups: a second counter in `ai_usage`, under the key `all` and dated by the
+America/Vancouver day, is checked after the household's own counter. For a PDF statement, the
+Worker checks the extracted rows against the statement's own printed total and refuses a result
+that does not reconcile. CSV files are parsed in the browser and never sent to Gemini.
 
 `scripts/statement-eval/` is an offline Python harness that scores the statement prompt and
 schema against a fictional mock corpus with known ground truth.
@@ -48,15 +50,16 @@ All money is integer cents. Timestamps are epoch milliseconds.
 
 | Table | Holds |
 |---|---|
-| `households` | One household: name, currency (CAD), timezone (America/Vancouver), custom categories, sign-in allowlist |
+| `households` | One household, shown to people as a group: name, currency (CAD), timezone (America/Vancouver), custom categories, sign-in allowlist |
 | `household_members` | Participants, their role (`owner` or `member`), display order, and the linked user once they sign in |
+| `member_accounts` | Links an account to a member slot, at most one slot per account in each group, so one account can belong to many groups. Triggers copy `household_members.user_id` into it until that column is dropped |
 | `cards` | Payment cards per member, with an optional statement day for reminders |
 | `transactions` | Approved expenses: date, store, amount, category, payer, card, split type and exact per-member shares |
 | `queue_items` | Pending expenses waiting for review, with duplicate flags and source-file provenance |
 | `cycles` | Closed and settled cycles; a settled cycle stores its frozen settlement |
 | `expense_history` | Every saved version and event of an expense: import, approval, edit, move to Pending, deletion |
 | `category_preferences` | Learned store-to-category suggestions |
-| `ai_usage` | Daily AI request counts per household |
+| `ai_usage` | Daily AI request counts per household, plus an app-wide count under the key `all` |
 | `reminder_completions` | Manual ticks on the payment reminder calendar |
 | `user`, `session`, `account`, `verification` | Better Auth tables |
 
@@ -107,14 +110,22 @@ member order.
 ## Security boundary
 
 D1 has no row-level security, so tenant isolation lives in one place in application code.
-`requireScope(c)` in `worker/lib/scope.ts` resolves the session to a household membership and
-returns a `ScopedRepository`. Route handlers reach data only through that repository, and every
-query it issues filters by the caller's household. Writes also check that any referenced payer,
-card or cycle belongs to the same household.
+`requireScope(c)` in `worker/lib/scope.ts` resolves the session to one household membership and
+returns a `ScopedRepository`. A request names its group in the `x-divvy-group` header or the
+`group` query parameter, and `requireScope` checks that the account has a link to that group in
+`member_accounts`. When a request names no group, `requireScope` uses the caller's only active
+group, and a caller with more than one gets 400 with `reason: 'group_required'`. Route handlers
+reach data only through that repository, and every query it issues filters by the caller's
+household. Writes also check that any referenced payer, card or cycle belongs to the same
+household.
+
+`/api/groups` lists and creates groups, so it runs outside the `requireScope` middleware and reads
+the session itself, with its data access in `worker/lib/groups.ts`. It lists only the groups the
+caller can open, and only the `OWNER_EMAIL` account can create one.
 
 Sign-in is Google only. The first sign-in by the `OWNER_EMAIL` address creates the household.
-Every later sign-in must match the household allowlist, and any other address is rejected
-before an account is created. Session cookies are `HttpOnly`, `Secure` and `SameSite=Lax`.
+Every later sign-in must match an allowlist entry in some household, and any other address is
+rejected before an account is created. Session cookies are `HttpOnly`, `Secure` and `SameSite=Lax`.
 
 ## Demo mode
 
@@ -204,3 +215,22 @@ Each entry gives the date, the decision and the reason.
     and `slate-600`. Rejected: darker tiers of the first five (each tier looks like its base color
     and stays near the app's blues and reds), and a generated golden-angle palette (unlimited, but
     it clusters into look-alike families once the app's hues are excluded).
+14. **2026-10-22. Groups reuse the `households` table.** A group already needs everything a
+    household has: members, cards, cycles and a ledger. Rejected: a new `groups` table, which means
+    a two-release rename for no gain.
+15. **2026-10-22. Account links live in `member_accounts`.** `household_members.user_id` is
+    unique, so one account could hold a slot in only one group. Triggers copy that column into
+    `member_accounts`, so the code that still writes `user_id` keeps working until a later release
+    drops it. Rejected: rebuilding `household_members` without `UNIQUE`, which breaks the rule that
+    migrations only add tables, columns, indexes and triggers.
+16. **2026-10-22. Requests name their group in the `x-divvy-group` header.** Rejected: a
+    `/api/groups/:id/...` path prefix, which rewrites every route and the demo route table, and a
+    cookie, which goes stale across tabs.
+17. **2026-10-22. Without a named group, use the caller's only active group.** A caller with more
+    than one active group gets 400 `group_required` and must choose. Rejected: falling back to the
+    earliest group, which silently writes to the wrong ledger once a person has two groups.
+18. **2026-10-22. Cap AI scans across all groups.** The Gemini key is app-wide and on the free
+    tier, so a per-group limit does not protect it. The app-wide counter uses the key `all`, the
+    America/Vancouver day (the app's default time zone) and `DAILY_AI_LIMIT`. The group's own
+    counter is checked first, so a group already past its limit does not use up the shared
+    allowance.
