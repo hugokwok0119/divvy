@@ -19,8 +19,9 @@ The main flow:
    (PDF, read by Gemini) or a CSV export (parsed in the browser), or enter an expense by hand. The
    import area names the group the rows go into.
 2. Imported rows land in **Pending**. A person checks payer, allocation and possible duplicates,
-   then approves each row. Pending shows one section per group that has Pending rows, so a person
-   can import once and then send some rows to another group, such as a trip, from the same screen.
+   then approves each row. Pending always shows the current group's section, then one section for
+   each other group that has Pending rows, so a person can import once and then send some rows to
+   another group, such as a trip, from the same screen.
 3. **Approved** rows count toward the live settlement.
 4. Any member closes the cycle for review, and the cycle is ticked off as settled once paid.
 
@@ -88,11 +89,12 @@ unit-tested.
 ## Expense lifecycle
 
 - Inputs enter Pending. Approval saves edits, validates the expense and records who approved it.
-- Pending rows can move between groups with **Send to group** until they are approved, including
-  rows returned with Move to Pending. Approval locks the expense to its group, because it turns the
-  split into shares between that group's people. A sent row arrives with no card and an equal split, and its
-  payer carries over only when the target group has exactly one active member with the same name.
-  The source group records the move as a deletion.
+- Only rows currently in Pending can move between groups, with **Send to group**. That includes
+  rows returned with Move to Pending. An Approved expense stays in its group, because approval
+  turns the split into shares between that group's people. A sent row arrives with no card and an
+  equal split. Its payer carries over only when the target group has exactly one non-archived
+  member with the same name, so a member who sits out still matches. The source group records the
+  move as a deletion.
 - Approved expenses can be edited directly and stay Approved. History records who saved each
   version and what changed.
 - **Move to Pending** sends an Approved expense back for review with an optional note. It keeps

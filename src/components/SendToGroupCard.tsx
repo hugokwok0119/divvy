@@ -38,7 +38,9 @@ const SendToGroupCard: React.FC<{
       const { members } = await apiFor(id).bootstrap();
       if (latest.current === id) setTargetMembers(members); // a slower earlier choice must not win
     } catch (err) {
-      if (latest.current === id) setError(err instanceof Error ? err.message : 'Could not load this group.');
+      if (latest.current !== id) return;
+      setTargetId(null); // so picking the same group again retries
+      setError(err instanceof Error ? err.message : 'Could not load this group.');
     }
   };
 
@@ -53,12 +55,14 @@ const SendToGroupCard: React.FC<{
         remove: async (ids, revisions) => { await apiFor(fromGroup.id).deleteQueueItems(ids, revisions); },
       }, rows, plan.inputs);
       const sent = rows.length - outcome.notCopied;
-      if (outcome.result === 'copied-not-removed') {
+      if (sent === 0) {
+        showToast(`Nothing was sent to ${target.name}. ${rowCount(rows.length)} stayed in ${fromGroup.name}.`, 'error');
+      } else if (outcome.result === 'copied-not-removed') {
         showToast(`Copied to ${target.name}, but the originals are still in ${fromGroup.name}. Delete them there.`, 'error');
       } else if (outcome.notCopied > 0) {
-        showToast(`Sent ${rowCount(sent)} to ${target.name}. ${outcome.notCopied} stayed in ${fromGroup.name}.`);
+        showToast(`Sent ${rowCount(sent)} to ${target.name}. ${outcome.notCopied} stayed in ${fromGroup.name}.`, 'error');
       } else {
-        showToast(`Sent ${rowCount(sent)} to ${target.name}`);
+        showToast(`Sent ${rowCount(sent)} to ${target.name}`, 'success');
       }
       onSent(target.id);
     } catch (err) {

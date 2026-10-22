@@ -362,6 +362,8 @@ export default function TransactionList(props: TransactionListProps) {
     const draft = drafts[row.item.expenseId];
     return !!draft && JSON.stringify(draft.values) !== JSON.stringify(draftFrom(draft.base.item));
   };
+  // Actions that send the saved values must wait until no selected row has unsaved or stale edits.
+  const selectionUnsaved = selectedRows.some(row => dirty(row) || (!!drafts[row.item.expenseId] && drafts[row.item.expenseId].base.item.revision !== row.item.revision));
   useEffect(() => {
     props.onDraftStateChange?.({
       dirtyIds: transactions.filter((item) => {
@@ -915,7 +917,7 @@ export default function TransactionList(props: TransactionListProps) {
                 if (!targets.length) return;
                 moveTrigger.current = event.currentTarget; setFeedback(''); setMove({ row: targets[0], targets, note: '', noteEdited: false });
               }}><Undo2 size={15} aria-hidden="true" /></button>}
-              {mode === 'approved' && props.onUpdate && <button type="button" className={`${button} ledger-icon`} aria-label={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} title={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} aria-pressed={allSelectedStarred} disabled={allBusy || busy.size > 0 || selectedRows.some(row => dirty(row) || (!!drafts[row.item.expenseId] && drafts[row.item.expenseId].base.item.revision !== row.item.revision))} onClick={() => void batch(async row => { if (row.kind === 'approved') await starExpense(row, !allSelectedStarred); })}><Star size={15} fill={allSelectedStarred ? 'currentColor' : 'none'} aria-hidden="true" /></button>}
+              {mode === 'approved' && props.onUpdate && <button type="button" className={`${button} ledger-icon`} aria-label={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} title={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} aria-pressed={allSelectedStarred} disabled={allBusy || busy.size > 0 || selectionUnsaved} onClick={() => void batch(async row => { if (row.kind === 'approved') await starExpense(row, !allSelectedStarred); })}><Star size={15} fill={allSelectedStarred ? 'currentColor' : 'none'} aria-hidden="true" /></button>}
               <button
                 aria-label="Delete selected" title="Delete selected expenses" className={`${button} ledger-icon`}
                 disabled={allBusy || busy.size > 0}
@@ -937,8 +939,8 @@ export default function TransactionList(props: TransactionListProps) {
               </button>}
               {mode === 'pending' && props.onSendToGroup && <button
                 type="button" id="send-to-group" className={`${button} ledger-icon`} aria-label="Send to group"
-                title={selected.size > MAX_BULK_BATCH ? `Select ${MAX_BULK_BATCH} rows or fewer` : 'Send to group'}
-                disabled={allBusy || busy.size > 0 || saving.size > 0 || selected.size > MAX_BULK_BATCH}
+                title={selectionUnsaved ? 'Save or cancel unsaved changes first' : selected.size > MAX_BULK_BATCH ? `Select ${MAX_BULK_BATCH} rows or fewer` : 'Send to group'}
+                disabled={allBusy || busy.size > 0 || saving.size > 0 || selectionUnsaved || selected.size > MAX_BULK_BATCH}
                 onClick={() => props.onSendToGroup!(selectedRows.flatMap(row => row.kind === 'pending' ? [row.item] : []))}
               ><Send size={15} aria-hidden="true" /></button>}
               {mode === 'pending' && (
