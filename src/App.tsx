@@ -45,17 +45,6 @@ const App: React.FC = () => {
   const [choosingGroup, setChoosingGroup] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
-  const loadGroups = useCallback(async () => {
-    try {
-      const list = await api.groups();
-      setGroupList(list);
-      return list;
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) { setData(null); return null; }
-      setLoadError(err instanceof Error ? err.message : 'Could not load your groups');
-      return null;
-    }
-  }, []);
   // Reload on open so pending counts are fresh; a failed reload keeps the cached list.
   const openSwitcher = useCallback((open: boolean) => {
     setSwitcherOpen(open);
@@ -89,15 +78,20 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!session && !demo) return;
     void (async () => {
-      const list = await loadGroups();
-      if (!list) return;
+      let list;
+      try { list = await api.groups(); } catch (err) {
+        if (err instanceof ApiError && err.status === 401) { setData(null); return; }
+        setLoadError(err instanceof Error ? err.message : 'Could not load your groups');
+        return;
+      }
+      setGroupList(list);
       const pick = pickGroup(currentGroupId(), list.groups);
       setCurrentGroup(pick);
       // No group and nothing to create: bootstrap reports why.
       if (pick || (list.groups.length === 0 && !list.canCreate)) { setChoosingGroup(false); void refresh(); }
       else { setChoosingGroup(true); setSwitcherOpen(true); }
     })();
-  }, [session, demo, refresh, loadGroups]);
+  }, [session, demo, refresh]);
 
   // Two people may edit at once, so refetch when the tab regains focus rather
   // than acting on a stale total. This is why there are no websockets.
