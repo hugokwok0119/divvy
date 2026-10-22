@@ -19,7 +19,9 @@ The main flow:
    (PDF, read by Gemini) or a CSV export (parsed in the browser), or enter an expense by hand. The
    import area names the group the rows go into.
 2. Imported rows land in **Pending**. A person checks payer, allocation and possible duplicates,
-   then approves each row.
+   then approves each row. Pending always shows the current group's section, then one section for
+   each other group that has Pending rows, so a person can import once and then send some rows to
+   another group, such as a trip, from the same screen.
 3. **Approved** rows count toward the live settlement.
 4. Any member closes the cycle for review, and the cycle is ticked off as settled once paid.
 
@@ -87,6 +89,12 @@ unit-tested.
 ## Expense lifecycle
 
 - Inputs enter Pending. Approval saves edits, validates the expense and records who approved it.
+- Only rows currently in Pending can move between groups, with **Send to group**. That includes
+  rows returned with Move to Pending. An Approved expense stays in its group, because approval
+  turns the split into shares between that group's people. A sent row arrives with no card and an
+  equal split. Its payer carries over only when the target group has exactly one non-archived
+  member with the same name, so a member who sits out still matches. The source group records the
+  move as a deletion.
 - Approved expenses can be edited directly and stay Approved. History records who saved each
   version and what changed.
 - **Move to Pending** sends an Approved expense back for review with an optional note. It keeps
@@ -262,3 +270,12 @@ Each entry gives the date, the decision and the reason.
     The flag only changes how new equal splits spread; stored shares are never recomputed. Rejected:
     a per-cycle roster, which needs a new table and a reset step at every close, and archiving the
     member, which hides them from the payer and single-split controls.
+22. **2026-10-22. One Pending screen with a section per group, and Send to group in two calls.**
+    The Pending tab shows the current group, then every other group with Pending rows, each with
+    its own heading and people. Send to group copies the selected rows into the target group with
+    `POST /api/queue/bulk`, then deletes only the originals whose copy exists with
+    `POST /api/queue/delete-bulk`. If the second call fails, the person sees that the originals
+    are still in the source group and deletes them there. A copy left behind is easier to notice
+    and fix than a lost row. Rejected: a server route that moves rows in one transaction, which
+    would need one repository to write to two groups, and a Pending view per group, which makes
+    the person switch groups to split one import.

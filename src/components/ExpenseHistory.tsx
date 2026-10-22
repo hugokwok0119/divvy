@@ -11,6 +11,7 @@ export default function ExpenseHistory({
   onClose,
   closingSnapshot,
   current,
+  client = api,
 }: {
   expenseId: string;
   members: Member[];
@@ -18,13 +19,15 @@ export default function ExpenseHistory({
   onClose: () => void;
   closingSnapshot?: ClosingSnapshot | null;
   current?: Transaction;
+  /** The group the expense belongs to; a section for another group passes its pinned client. */
+  client?: typeof api;
 }) {
   const [events, setEvents] = useState<ExpenseHistoryEvent[] | null>(null);
   const [error, setError] = useState('');
   const historyDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     let active = true;
-    void api
+    void client
       .expenseHistory(expenseId)
       .then((rows) => {
         if (active) setEvents(visibleExpenseHistory(rows).sort((a, b) => b.timestamp - a.timestamp || b.after.revision - a.after.revision));
@@ -35,7 +38,7 @@ export default function ExpenseHistory({
     return () => {
       active = false;
     };
-  }, [expenseId]);
+  }, [expenseId, client]);
   useEffect(() => {
     const dialog = historyDialog.current, trigger = document.activeElement as HTMLElement | null;
     if (!dialog) return;

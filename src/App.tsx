@@ -4,11 +4,11 @@ import { Settings, History, LogOut, RotateCcw, TrendingUp } from 'lucide-react';
 
 import { signOut, useSession } from './lib/auth-client';
 import { api, ApiError, currentGroupId, setCurrentGroup } from './lib/api';
-import { pickGroup } from './lib/groups';
+import { pendingSectionIds, pickGroup } from './lib/groups';
 import { computeSettlement } from './lib/settlement';
 import { formatCentsWithSymbol, cycleGroupsOf, cycleName } from './lib/money';
 import { generateId, CATEGORIES, categoryOptions } from './constants';
-import type { Bootstrap, GroupSummary, TxInput, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
+import type { Bootstrap, GroupSummary, Member, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
 import { LoginPage } from './components/auth/LoginPage';
 import { useToast, Toast } from './components/Toast';
 import InputSection from './components/InputSection';
@@ -23,6 +23,8 @@ import GroupSwitcher from './components/GroupSwitcher';
 import SplittingWith from './components/SplittingWith';
 import { permissionsFor } from './lib/permissions';
 import NewGroupCard from './components/NewGroupCard';
+import SendToGroupCard from './components/SendToGroupCard';
+import GroupPendingSection, { confirmQueueItemWith, GroupPendingHeader } from './components/GroupPendingSection';
 
 type View = 'dashboard' | 'history' | 'settings' | 'analytics';
 
@@ -47,11 +49,23 @@ const App: React.FC = () => {
   const [choosingGroup, setChoosingGroup] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
-  // Reload on open so pending counts are fresh; a failed reload keeps the cached list.
+  // Bumped on focus so other groups' Pending sections refetch with the current one.
+  const [sectionReloadKey, setSectionReloadKey] = useState(0);
+  // The group whose Pending list holds the bulk selection; selecting in another list clears it.
+  const [selectionOwner, setSelectionOwner] = useState<string | null>(null);
+  const [sendRequest, setSendRequest] = useState<{ rows: QueueItem[]; fromGroup: GroupSummary; sourceMembers: Member[] } | null>(null);
+  // Only the newest reload applies, so a late one cannot bring back an emptied
+  // Pending section. A failed reload keeps the cached list.
+  const groupsRequest = useRef(0);
+  const reloadGroups = useCallback(() => {
+    const request = ++groupsRequest.current;
+    api.groups().then((list) => { if (request === groupsRequest.current) setGroupList(list); }, () => {});
+  }, []);
+  // Reload on open so pending counts are fresh.
   const openSwitcher = useCallback((open: boolean) => {
     setSwitcherOpen(open);
-    if (open) api.groups().then(setGroupList, () => {});
-  }, []);
+    if (open) reloadGroups();
+  }, [reloadGroups]);
 
   const refresh = useCallback(() => {
     // Each mutation waits for its own snapshot, after earlier refreshes finish.
@@ -98,10 +112,16 @@ const App: React.FC = () => {
   // Two people may edit at once, so refetch when the tab regains focus rather
   // than acting on a stale total. This is why there are no websockets.
   useEffect(() => {
-    const onFocus = () => { if ((session || demo) && currentGroupId()) void refresh(); };
+    const onFocus = () => {
+      if (!(session || demo) || !currentGroupId()) return;
+      void refresh();
+      // Fresh counts also add a section for a group that gained Pending rows elsewhere.
+      reloadGroups();
+      setSectionReloadKey((key) => key + 1);
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [session, demo, refresh]);
+  }, [session, demo, refresh, reloadGroups]);
 
   // Dashboard Filters
   const [filterDateStart, setFilterDateStart] = useState('');
@@ -254,16 +274,7 @@ const App: React.FC = () => {
   };
 
   const handleConfirmQueueItem = async (item: QueueItem) => {
-    if (!item.date || !item.store?.trim() || item.amountCents == null || !item.category || !item.payerId || !['equal', 'single', 'custom'].includes(item.splitType ?? '')) {
-      throw new Error('Fill in date, store, amount, category, payer and split before approving.');
-    }
-    const input: TxInput = {
-      id: generateId(), date: item.date, store: item.store, amountCents: item.amountCents,
-      category: item.category, payerId: item.payerId, cardId: item.cardId,
-      splitType: item.splitType as TxInput['splitType'],
-      splitRule: item.splitRuleJson ? JSON.parse(item.splitRuleJson) : null,
-    };
-    const saved = await api.confirmQueueItem(item.id, input.id, input, item.revision);
+    const saved = await confirmQueueItemWith(api, item);
     await refresh();
     return saved;
   };
@@ -296,6 +307,9 @@ const App: React.FC = () => {
   };
 
   // --- Groups ---
+  const otherPendingIds = data && groupList && ledgerTab === 'pending' ? pendingSectionIds(groupList.groups, data.household.id).slice(1) : [];
+  // The header only tells lists apart; alone it would repeat "Splitting with".
+  const groupHeaders = otherPendingIds.length > 0;
   const selectGroup = (id: string) => {
     setCurrentGroup(id);
     setChoosingGroup(false);
@@ -325,6 +339,29 @@ const App: React.FC = () => {
         selectGroup(group.id);
       }}
       restoreFocus={() => document.getElementById('group-switcher')}
+    />
+  );
+
+  const canSend = !!groupList && groupList.groups.length >= 2;
+  const openSend = (fromId: string, sourceMembers: Member[], rows: QueueItem[]) => {
+    const fromGroup = groupList?.groups.find((g) => g.id === fromId);
+    if (fromGroup) setSendRequest({ rows, fromGroup, sourceMembers });
+  };
+  const sendCard = sendRequest && groupList && (
+    <SendToGroupCard
+      {...sendRequest}
+      groups={groupList.groups}
+      onClose={() => setSendRequest(null)}
+      onSent={() => {
+        setSendRequest(null);
+        // An owner that is no list clears every selection, including rows that stayed behind.
+        setSelectionOwner('');
+        void refresh();
+        setSectionReloadKey((key) => key + 1);
+        reloadGroups();
+      }}
+      restoreFocus={() => document.getElementById('send-to-group')}
+      showToast={showToast}
     />
   );
 
@@ -412,6 +449,7 @@ const App: React.FC = () => {
       {demo && howItWorksOpen && <demo.HowItWorksCard onClose={() => setHowItWorksOpen(false)} />}
 
       {newGroupCard}
+      {sendCard}
 
       {/* Keyed by group: every view remounts and refetches when the group changes. */}
       <main key={data.household.id} className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -481,6 +519,8 @@ const App: React.FC = () => {
                 <button role="tab" aria-selected={ledgerTab === 'pending'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('pending')}>Pending ({data.queue.length})</button>
                 <button role="tab" aria-selected={ledgerTab === 'approved'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'approved' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('approved')}>Approved ({data.transactions.length})</button>
               </div>
+              <section aria-labelledby={groupHeaders ? `pending-group-${data.household.id}` : undefined}>
+              {groupHeaders && <GroupPendingHeader id={`pending-group-${data.household.id}`} name={data.household.name} members={data.members} />}
               <TransactionList
                 transactions={data.transactions}
                 pendingItems={data.queue}
@@ -493,6 +533,9 @@ const App: React.FC = () => {
                 onReturnToPending={handleReturnToPending}
                 onChanged={refresh}
                 onDraftStateChange={setLedgerDraftState}
+                onSelectionStart={() => setSelectionOwner(data.household.id)}
+                selectionElsewhere={selectionOwner !== null && selectionOwner !== data.household.id}
+                onSendToGroup={canSend ? (rows) => openSend(data.household.id, data.members, rows) : undefined}
                 members={data.members}
                 cards={data.cards}
                 categories={categories}
@@ -515,6 +558,19 @@ const App: React.FC = () => {
                 minDate={minDate}
                 maxDate={maxDate}
               />
+              </section>
+              {otherPendingIds.map((id) => (
+                <GroupPendingSection
+                  key={id}
+                  group={groupList!.groups.find((g) => g.id === id)!}
+                  reloadKey={sectionReloadKey}
+                  onChanged={reloadGroups}
+                  onSelectionStart={() => setSelectionOwner(id)}
+                  selectionElsewhere={selectionOwner !== null && selectionOwner !== id}
+                  onSendToGroup={canSend ? (rows, members) => openSend(id, members, rows) : undefined}
+                  showToast={showToast}
+                />
+              ))}
             </section>
             {/* Below lg the summary comes last, after review; display:none keeps one copy in the a11y tree. */}
             <div className="lg:hidden">
