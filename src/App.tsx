@@ -50,6 +50,8 @@ const App: React.FC = () => {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   // Bumped on focus so other groups' Pending sections refetch with the current one.
   const [sectionReloadKey, setSectionReloadKey] = useState(0);
+  // The group whose Pending list holds the bulk selection; selecting in another list clears it.
+  const [selectionOwner, setSelectionOwner] = useState<string | null>(null);
   // Only the newest reload applies, so a late one cannot bring back an emptied
   // Pending section. A failed reload keeps the cached list.
   const groupsRequest = useRef(0);
@@ -505,6 +507,8 @@ const App: React.FC = () => {
                 onReturnToPending={handleReturnToPending}
                 onChanged={refresh}
                 onDraftStateChange={setLedgerDraftState}
+                onSelectionStart={() => setSelectionOwner(data.household.id)}
+                selectionElsewhere={selectionOwner !== null && selectionOwner !== data.household.id}
                 members={data.members}
                 cards={data.cards}
                 categories={categories}
@@ -534,6 +538,8 @@ const App: React.FC = () => {
                   group={groupList!.groups.find((g) => g.id === id)!}
                   reloadKey={sectionReloadKey}
                   onChanged={reloadGroups}
+                  onSelectionStart={() => setSelectionOwner(id)}
+                  selectionElsewhere={selectionOwner !== null && selectionOwner !== id}
                   showToast={showToast}
                 />
               ))}

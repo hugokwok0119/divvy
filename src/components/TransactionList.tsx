@@ -73,6 +73,10 @@ export interface TransactionListProps {
   readOnly?: boolean;
   /** The group client saves go through; a section for another group passes apiFor(itsId). */
   client?: typeof api;
+  /** Called when this list's selection goes from empty to non-empty. */
+  onSelectionStart?: () => void;
+  /** True while another list on screen owns the selection; turning true clears this one's. */
+  selectionElsewhere?: boolean;
 }
 type SortKey = 'date' | 'store' | 'category' | 'amount';
 export function sortAriaValue(
@@ -121,6 +125,9 @@ export default function TransactionList(props: TransactionListProps) {
   const bulkToolbarElement = useRef<HTMLDivElement>(null);
   const [bulkToolbarBounds, setBulkToolbarBounds] = useState({ left: 0, width: 0, height: 0 });
   const hasBulkSelection = !readOnly && selected.size > 0;
+  // One selection across lists, so only one fixed bulk toolbar exists at a time.
+  useEffect(() => { if (hasBulkSelection) props.onSelectionStart?.(); }, [hasBulkSelection]);
+  useEffect(() => { if (props.selectionElsewhere) setSelected(new Set()); }, [props.selectionElsewhere]);
   useLayoutEffect(() => {
     if (!hasBulkSelection) return;
     const ledger = ledgerElement.current, toolbar = bulkToolbarElement.current;
