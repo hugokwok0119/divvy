@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { api, ApiError } from '../src/lib/api';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { api, apiFor, ApiError, setCurrentGroup } from '../src/lib/api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -106,4 +106,91 @@ it('posts an atomic Pending breakdown with stable child identity and revision', 
     return new Response(JSON.stringify({ original: { id: 'q /?' }, separated: { id: 'q-child' } }), { status: 200 });
   }));
   expect(await (api as any).splitQueueItem('q /?', 'q-child', -3000, 7)).toMatchObject({ separated: { id: 'q-child' } });
+});
+
+describe('group-aware api client', () => {
+  const store = new Map<string, string>();
+  const fakeStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, value); },
+    removeItem: (key: string) => { store.delete(key); },
+  };
+  const captureFetch = () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(JSON.stringify({ me: { memberId: 'm1', role: 'owner' } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    return () => fetchMock.mock.calls.at(-1)![1]!.headers as Record<string, string>;
+  };
+
+  beforeEach(() => {
+    store.clear();
+    vi.stubGlobal('localStorage', fakeStorage);
+  });
+  afterEach(() => setCurrentGroup(null));
+
+  it('sends the current group on every request', async () => {
+    const headers = captureFetch();
+    setCurrentGroup('h2');
+    await api.bootstrap();
+    expect(headers()['x-divvy-group']).toBe('h2');
+    expect(store.get('divvy.groupId')).toBe('h2');
+  });
+
+  it('sends a fixed group through apiFor', async () => {
+    const headers = captureFetch();
+    setCurrentGroup('h2');
+    await apiFor('h3').bootstrap();
+    expect(headers()['x-divvy-group']).toBe('h3');
+  });
+
+  it('sends no group header before one is chosen', async () => {
+    const headers = captureFetch();
+    setCurrentGroup(null);
+    await api.bootstrap();
+    expect(headers()).not.toHaveProperty('x-divvy-group');
+    expect(store.has('divvy.groupId')).toBe(false);
+  });
+
+  it('puts the group in the export link', () => {
+    setCurrentGroup('h2');
+    expect(api.exportUrl()).toBe('/api/export?group=h2');
+    setCurrentGroup(null);
+    expect(api.exportUrl()).toBe('/api/export');
+  });
+
+  it('keeps its group when localStorage changes', async () => {
+    const headers = captureFetch();
+    setCurrentGroup('h2');
+    localStorage.setItem('divvy.groupId', 'h9');
+    await api.bootstrap();
+    expect(headers()['x-divvy-group']).toBe('h2');
+  });
+
+  it('surfaces group_required as the ApiError reason', async () => {
+    stub(400, { error: 'Choose a group', reason: 'group_required' });
+    await expect(api.bootstrap()).rejects.toMatchObject({
+      status: 400, message: 'Choose a group', reason: 'group_required',
+    });
+  });
+
+  it('sends the group with a receipt scan', async () => {
+    const headers = captureFetch();
+    setCurrentGroup('h2');
+    await api.parseReceipt(new File(['x'], 'r.png'));
+    expect(headers()['x-divvy-group']).toBe('h2');
+  });
+
+  it('lists and creates groups', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('/api/groups');
+      return init?.method === 'POST'
+        ? new Response(JSON.stringify({ id: 'h4', name: 'Trip' }), { status: 201 })
+        : new Response(JSON.stringify({ groups: [], canCreate: true }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await api.groups()).toEqual({ groups: [], canCreate: true });
+    const input = { name: 'Trip', currencyCode: 'CAD', timezone: 'America/Vancouver' };
+    expect(await api.createGroup(input)).toMatchObject({ id: 'h4' });
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual(input);
+  });
 });

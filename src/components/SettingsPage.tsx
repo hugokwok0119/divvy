@@ -462,7 +462,7 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
             </p>
             {!isDemoMode() && perms.canExportData ? (
               <a
-                href={api.exportUrl}
+                href={api.exportUrl()}
                 download="divvy-export.json"
                 className="block w-full text-center rounded-lg border border-slate-300 py-2 text-sm font-medium hover:bg-slate-50 bg-white"
               >

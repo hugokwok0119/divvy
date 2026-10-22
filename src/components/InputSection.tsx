@@ -5,7 +5,7 @@ import { categoryOptions, generateId } from '../constants';
 import { parseAmountToCents, formatCentsWithSymbol, MAX_AMOUNT_CENTS } from '../lib/money';
 import { parseCsv } from '../lib/csv';
 import { findExplicitCategoryPreference } from '../lib/category';
-import { ApiError } from '../lib/api';
+import { ApiError, groupHeaders } from '../lib/api';
 import { isDemoMode } from '../lib/demo-mode';
 import { MAX_UPLOAD_BYTES } from '../../worker/lib/gemini';
 import { Upload, Plus, Loader2, Star, CreditCard, User, X, RotateCw } from 'lucide-react';
@@ -129,6 +129,7 @@ const InputSection: React.FC<InputSectionProps> = ({
       const res = await fetch('/api/ai/parse-receipt', {
         method: 'POST',
         body: file,
+        headers: groupHeaders(),
         signal,
       });
       if (!res.ok) {
