@@ -137,6 +137,8 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
   const saves: Array<{ id: string; patch: any; revision: number }> = [],
     approvals: QueueItem[] = [],
     moves: any[] = [];
+  api.groups = async () => ({ groups: [{ id: 'h', name: 'Ledger test', role: 'owner', memberId: 'm1', peopleCount: 2, pendingCount: 0 }], canCreate: false });
+  api.reminders = async () => [];
   api.bootstrap = async () => structuredClone(stored);
   api.updateQueueItem = async (id, patch, revision) => {
     saves.push({ id, patch, revision });

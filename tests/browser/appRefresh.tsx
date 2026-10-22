@@ -53,6 +53,8 @@ async function mount() {
     confirmations.push({ id, date: (input as { date: string }).date });
     return {} as Awaited<ReturnType<typeof api.confirmQueueItem>>;
   };
+  api.groups = async () => ({ groups: [{ id: 'h1', name: 'Test household', role: 'owner', memberId: 'm1', peopleCount: 1, pendingCount: 0 }], canCreate: false });
+  api.reminders = async () => [];
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);
