@@ -543,6 +543,7 @@ export class ScopedRepository {
       closedByMemberId: this.actor?.memberId ?? null, closedByName: this.actor?.displayName ?? null,
       closingSnapshotJson: JSON.stringify({ transactions: after.map(row => snapshot(row, 'approved')),
         members: await this.publicMembers() }),
+      name: sql`(select ${households.currentCycleName} from ${households} where ${households.id} = ${this.householdId})`,
     };
     const [saved] = await this.db.batch([
       history,
@@ -550,8 +551,22 @@ export class ScopedRepository {
       this.db.update(transactions).set({ cycleId, revision: sql`${transactions.revision} + 1`, updatedAt: now }).where(and(
         eq(transactions.householdId, this.householdId), selectedIds, gate,
       )),
+      this.db.update(households).set({ currentCycleName: null }).where(and(eq(households.id, this.householdId), gate)),
     ]);
     if (saved.meta.changes !== ordered.length) this.conflict();
+    return this.requireCycle(cycleId);
+  }
+
+  /** A null name returns the open cycle to its default label. */
+  async renameCurrentCycle(name: string | null) {
+    await this.db.update(households).set({ currentCycleName: name }).where(eq(households.id, this.householdId));
+    return { name };
+  }
+
+  async renameCycle(cycleId: string, name: string | null) {
+    const result = await this.db.update(cycles).set({ name })
+      .where(and(eq(cycles.id, cycleId), eq(cycles.householdId, this.householdId)));
+    if (result.meta.changes !== 1) throw new HTTPException(404, { message: 'Cycle not found' });
     return this.requireCycle(cycleId);
   }
 

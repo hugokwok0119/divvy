@@ -23,7 +23,7 @@ const tx = (
 
 const cycle = (status: 'closed' | 'settled'): Cycle => ({
   id: 'c1', status, settlementJson: null, closedByMemberId: null, closedByName: null,
-  closingSnapshotJson: null, closedAt: new Date(2026, 9, 6, 12).getTime(), settledAt: null,
+  closingSnapshotJson: null, closedAt: new Date(2026, 9, 6, 12).getTime(), settledAt: null, name: null,
 });
 
 const settlementFor = (rows: Transaction[], roster: string[]) => computeSettlement(

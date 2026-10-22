@@ -158,7 +158,7 @@ export function buildDemoData(samples: SampleResult[]): DemoState {
       closedByMemberId: DEMO_IDS.alex, closedByName: NAMES[DEMO_IDS.alex],
       // Same shape closeCycle writes: approved snapshots at the closed revision plus the public members.
       closingSnapshotJson: JSON.stringify({ transactions: rows.map((tx) => snapshot(tx, 'approved')), members }),
-      closedAt, settledAt: settled ? closedAt + 3 * 24 * 60 * 60 * 1000 : null });
+      closedAt, settledAt: settled ? closedAt + 3 * 24 * 60 * 60 * 1000 : null, name: null });
   }
 
   // The two designed matches: sample-a1 rows SAFFRONQUILL KITCHEN 2026-09-07 6500 and QUILLFERN MARKET #0042 2026-09-10 9231.
@@ -194,7 +194,7 @@ export function buildDemoData(samples: SampleResult[]): DemoState {
     bootstrap: {
       me: { memberId: DEMO_IDS.alex, role: 'owner' },
       household: { id: DEMO_IDS.household, name: 'Demo Household', currencyCode: 'CAD',
-        timezone: 'America/Vancouver', customCategories: [] },
+        timezone: 'America/Vancouver', customCategories: [], currentCycleName: null },
       members,
       cards: [card(DEMO_IDS.visa, DEMO_IDS.alex, 0, 5), card(DEMO_IDS.mastercard, DEMO_IDS.sam, 1, 20)],
       transactions: open.sort(byDateDesc),

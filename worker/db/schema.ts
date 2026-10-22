@@ -7,6 +7,8 @@ export const households = sqliteTable('households', {
   timezone: text('timezone').notNull().default('America/Vancouver'),
   customCategoriesJson: text('custom_categories_json').notNull().default('[]'),
   allowedEmailsJson: text('allowed_emails_json').notNull().default('[]'),
+  // Name the user gave the open cycle; closeCycle moves it to cycles.name.
+  currentCycleName: text('current_cycle_name'),
   createdAt: integer('created_at').notNull(),
 });
 
@@ -45,6 +47,8 @@ export const cycles = sqliteTable('cycles', {
   closingSnapshotJson: text('closing_snapshot_json'),
   closedAt: integer('closed_at').notNull(),
   settledAt: integer('settled_at'),
+  // Null shows the default label; set only after the user renames the cycle.
+  name: text('name'),
 });
 
 export const transactions = sqliteTable('transactions', {

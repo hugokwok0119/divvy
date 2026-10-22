@@ -23,6 +23,7 @@ bootstrap.get('/', async (c) => {
       currencyCode: household.currencyCode,
       timezone: household.timezone,
       customCategories: JSON.parse(household.customCategoriesJson),
+      currentCycleName: household.currentCycleName,
     },
     members, cards, transactions, queue, cycles,
     categoryPreferences: prefs,
