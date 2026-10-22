@@ -1,6 +1,6 @@
 // Pure module: no React, no DOM API, no `?url` assets. The Workers-runtime parity test loads it.
 import type { CycleGroup, Settlement, Transaction } from '../types';
-import { computeSettlement } from '../lib/settlement';
+import { computeSettlement, splitRosterOf } from '../lib/settlement';
 import type { DemoState, SampleResult } from './types';
 import { queueRoutes } from './queue';
 import { DEMO_REFUSAL, HttpError, json } from './http';
@@ -36,6 +36,7 @@ export function createDemoServer(state: DemoState, samples: SampleResult[], opti
   const { now = Date.now, newId = () => crypto.randomUUID(), parseDelayMs = 1000 } = options;
   const roster = () => state.bootstrap.members.filter((m) => m.archivedAt === null)
     .sort((a, b) => a.sortOrder - b.sortOrder).map((m) => m.id);
+  const splitRoster = () => splitRosterOf([...state.bootstrap.members].sort((a, b) => a.sortOrder - b.sortOrder));
   const transactionsByCycle = (cycleId: string) => newestFirst(state.archived.filter((tx) => tx.cycleId === cycleId));
   const findCycle = (id: string) => state.bootstrap.cycles.find((cy) => cy.id === id);
 
@@ -111,7 +112,7 @@ export function createDemoServer(state: DemoState, samples: SampleResult[], opti
     },
     { method: 'GET', pattern: '/api/reminders', handler: () => json([]) },
     { method: 'GET', pattern: '/api/auth/get-session', handler: () => json(null) },
-    ...queueRoutes({ state, now, newId, roster }),
+    ...queueRoutes({ state, now, newId, roster, splitRoster }),
     { method: 'POST', pattern: '/api/ai/parse-receipt', handler: parseHandler(state, samples, parseDelayMs) },
   ];
 

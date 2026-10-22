@@ -6,7 +6,7 @@ import { percentagesFromAmounts } from '../src/lib/percentages';
 import type { Cycle, Member, Transaction } from '../src/types';
 
 const member = (id: string, archivedAt: number | null = null): Member =>
-  ({ id, displayName: id.toUpperCase(), role: 'member', sortOrder: 0, archivedAt });
+  ({ id, displayName: id.toUpperCase(), role: 'member', sortOrder: 0, archivedAt, sittingOutAt: null });
 
 const tx = (
   id: string, date: string, amountCents: number, payerId: string,

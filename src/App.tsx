@@ -20,6 +20,8 @@ import HistoryPage from './components/HistoryModal';
 import AnalyticsPage from './components/AnalyticsPage';
 import CycleName from './components/CycleName';
 import GroupSwitcher from './components/GroupSwitcher';
+import SplittingWith from './components/SplittingWith';
+import { permissionsFor } from './lib/permissions';
 import NewGroupCard from './components/NewGroupCard';
 
 type View = 'dashboard' | 'history' | 'settings' | 'analytics';
@@ -463,6 +465,18 @@ const App: React.FC = () => {
                   onSave={async (name) => { await api.renameCycle('current', name); await refresh(); }}
                 />
               </div>
+              <SplittingWith
+                members={data.members}
+                canEdit={!demo && permissionsFor(data.me.role).canManageMembers}
+                onToggle={async (id, sittingOut) => {
+                  try {
+                    await api.setSittingOut(id, sittingOut);
+                    await refresh();
+                  } catch (err) {
+                    showToast(err instanceof ApiError ? err.message : 'Could not update who is splitting.', 'error');
+                  }
+                }}
+              />
               <div role="tablist" aria-label="Ledger views" className="flex gap-2 mb-4 border-b border-slate-200">
                 <button role="tab" aria-selected={ledgerTab === 'pending'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('pending')}>Pending ({data.queue.length})</button>
                 <button role="tab" aria-selected={ledgerTab === 'approved'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'approved' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('approved')}>Approved ({data.transactions.length})</button>

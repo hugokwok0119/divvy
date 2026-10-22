@@ -35,7 +35,7 @@ function mount() {
   let delayApproval = false;
   let queue = [item, { ...item, id: 'q2', expenseId: 'expense-test-2', store: 'Lyft' }];
   const render = () => flushSync(() => root.render(<ReviewQueue
-    queue={queue} members={[{ id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null }]} cards={[]} customCategories={[]} transactions={[]}
+    queue={queue} members={[{ id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null }]} cards={[]} customCategories={[]} transactions={[]}
     onUpdate={(id: string, patch: Partial<QueueItemInput>) => {
       updates.push({ id, date: patch.date });
       const save = deferred();

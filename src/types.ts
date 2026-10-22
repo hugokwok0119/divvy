@@ -11,6 +11,7 @@ export interface Member {
   role: 'owner' | 'member';
   sortOrder: number;
   archivedAt: number | null;
+  sittingOutAt: number | null;
 }
 
 export interface Card {

@@ -45,6 +45,16 @@ memberRoutes.patch('/:id', async (c) => {
   return c.json(await scope.repo.upsertMember({ ...value, id: c.req.param('id') } as never));
 });
 
+memberRoutes.put('/:id/sitting-out', async (c) => {
+  const scope = await requireScope(c);
+  requireOwner(scope);
+  const body = await c.req.json().catch(() => null);
+  if (typeof body?.sittingOut !== 'boolean') {
+    return c.json({ error: 'Invalid sitting out', fields: { sittingOut: 'Expected a boolean' } }, 400);
+  }
+  return c.json(await scope.repo.setSittingOut(c.req.param('id'), body.sittingOut));
+});
+
 memberRoutes.delete('/:id', async (c) => {
   const scope = await requireScope(c);
   requireOwner(scope);

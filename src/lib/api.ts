@@ -1,4 +1,4 @@
-import type { GroupSummary, Bootstrap, Transaction, QueueItem, Cycle, CycleGroup, Settlement, ExpenseHistoryEvent, CloseCycleInput, ReminderCompletion } from '../types';
+import type { GroupSummary, Bootstrap, Member, Transaction, QueueItem, Cycle, CycleGroup, Settlement, ExpenseHistoryEvent, CloseCycleInput, ReminderCompletion } from '../types';
 import { CATEGORIES, canonicalCategory, categoryOptions } from '../constants';
 
 export class ApiError extends Error {
@@ -169,6 +169,9 @@ function makeApi(headers: () => Record<string, string>) {
 
     upsertMember: (input: unknown) =>
       req<unknown>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
+
+    setSittingOut: (id: string, sittingOut: boolean) =>
+      req<Member>(`/api/members/${encodeURIComponent(id)}/sitting-out`, { method: 'PUT', body: JSON.stringify({ sittingOut }) }),
 
     upsertCard: (input: unknown) =>
       req<unknown>('/api/cards', { method: 'POST', body: JSON.stringify(input) }),

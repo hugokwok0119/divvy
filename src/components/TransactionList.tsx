@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import type { Transaction, QueueItem, QueueItemInput, Member, Card, TxPatch, ClosingSnapshot } from '../types';
 import { generateId } from '../constants';
-import { distributeByWeight } from '../lib/settlement';
+import { distributeByWeight, splitRosterOf } from '../lib/settlement';
 import { closedCycleCard, formatCents, formatCentsWithSymbol, parseAmountToCents } from '../lib/money';
 import { api, ApiError } from '../lib/api';
 import { amountWeightsError, customPercentagesError, formatPercentage, parsePercentageDraft, percentagesFromAmounts } from '../lib/percentages';
@@ -227,6 +227,7 @@ export default function TransactionList(props: TransactionListProps) {
   }, [!!bulkSplit]);
   useEffect(() => { if (!hasBulkSelection) setBulkSplit(null); }, [hasBulkSelection]);
   const activeMembers = members.filter((member) => !member.archivedAt);
+  const splitRoster = splitRosterOf(members);
   const rows: LedgerRow[] = useMemo(
     () =>
       mode === 'pending'
@@ -556,7 +557,7 @@ export default function TransactionList(props: TransactionListProps) {
       percentages: Object.fromEntries(Object.entries(
         draft.splitType === 'custom' && draft.splitRule?.percentages
           ? draft.splitRule.percentages
-          : Object.fromEntries(activeMembers.map(member => [member.id, 100 / (activeMembers.length || 1)])),
+          : Object.fromEntries(activeMembers.map(member => [member.id, splitRoster.includes(member.id) ? 100 / (splitRoster.length || 1) : 0])),
       ).map(([id, value]) => [id, String(value)])),
     },
   });
@@ -695,7 +696,7 @@ export default function TransactionList(props: TransactionListProps) {
     const allocationSummary = Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => `${members.find(m => m.id === id)?.displayName ?? 'Former member'} ${formatPercentage(value)}`).join(' · ');
     const indicator = (background: string) => <span aria-hidden="true" className="ledger-split-line" style={{ background }} />;
     return <div className="ledger-split" aria-label="Split between" data-read-only={readOnly || undefined}>
-      <button type="button" className="ledger-icon ledger-split-button ledger-equal" aria-label={`Split ${draft.store || 'expense'} equally`} title="Everyone equally" aria-pressed={draft.splitType === 'equal'} disabled={disabled || readOnly} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'equal', splitRule: null })); closeAllocation(); }}>
+      <button type="button" className="ledger-icon ledger-split-button ledger-equal" aria-label={`Split ${draft.store || 'expense'} equally`} title="Equally among members who are in" aria-pressed={draft.splitType === 'equal'} disabled={disabled || readOnly} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'equal', splitRule: null })); closeAllocation(); }}>
         <Users size={14} aria-hidden="true" />{indicator('#64748b')}
       </button>
       {splitMembers.map((member) => <button key={member.id} type="button" className="ledger-icon ledger-split-button ledger-person" style={{ '--member-color': memberColor(member.id) } as React.CSSProperties} aria-label={`Assign ${draft.store || 'expense'} to ${member.displayName}`} title={member.displayName} aria-pressed={chosen === member.id} disabled={disabled || readOnly || (!!member.archivedAt && chosen !== member.id)} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'single', splitRule: { memberId: member.id } })); closeAllocation(); }}>

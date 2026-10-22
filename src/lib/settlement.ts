@@ -69,6 +69,13 @@ export function computeShares(
   );
 }
 
+/** Who a new equal split spreads across: members neither archived nor sitting out, in the given order. */
+export function splitRosterOf(
+  members: Array<{ id: MemberId; archivedAt: number | null; sittingOutAt?: number | null }>,
+): MemberId[] {
+  return members.filter((m) => m.archivedAt === null && m.sittingOutAt == null).map((m) => m.id);
+}
+
 export interface TxForBalance {
   payerId: MemberId;
   amountCents: number;

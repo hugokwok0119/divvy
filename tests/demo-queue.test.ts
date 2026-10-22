@@ -264,6 +264,23 @@ describe('demo approvals', () => {
     expect(dates).toEqual([...dates].sort().reverse());
   });
 
+  it('confirm drops a member who sits out from equal splits, not custom ones', async () => {
+    const { state, server } = setup();
+    state.bootstrap.members.find((m) => m.id === 'mem_sam')!.sittingOutAt = NOW;
+    const { body } = await importRows(server, 'c', sampleRows('sample-b1').slice(0, 2));
+    const cases: Array<[SplitType, SplitRule | null, string[]]> = [
+      ['equal', null, ['mem_alex']], ['custom', { percentages: { mem_alex: 60, mem_sam: 40 } }, ROSTER],
+    ];
+    for (const [i, [splitType, splitRule, roster]] of cases.entries()) {
+      const row = body.created[i];
+      const res = await send(server, 'POST', `/api/queue/${row.id}/confirm`,
+        { revision: 1, transactionId: `tx_${i}`, transaction: txBody(row, row.id, splitType, splitRule) });
+      expect(res.status).toBe(201);
+      const tx = await res.json() as Transaction;
+      expect(tx.splitSharesJson).toBe(JSON.stringify(computeShares(row.amountCents!, splitType, splitRule, roster)));
+    }
+  });
+
   it('confirm refuses incomplete rows', async () => {
     const { state, server } = setup();
     const row = state.bootstrap.queue.find((q) => q.category === null)!;

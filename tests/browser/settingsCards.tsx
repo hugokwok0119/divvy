@@ -7,7 +7,7 @@ import type { Card, Member } from '../../src/types';
 import '../../src/index.css';
 
 // Serve with npm run dev, then open /tests/browser/settingsCards.html.
-const members: Member[] = [{ id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null }];
+const members: Member[] = [{ id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null }];
 const card: Card = { id: 'c1', memberId: 'm1', name: 'Amex', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null };
 const assert = (value: unknown, message: string) => { if (!value) throw new Error(message); };
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -117,7 +117,7 @@ for (const [choice, applyToHistory] of [['Current and future', false], ['Also pa
   });
 }
 const visa: Card = { ...card, id: 'c2', name: 'Visa', sortOrder: 1 };
-const hugo: Member = { id: 'm2', displayName: 'Hugo', role: 'member', sortOrder: 1, archivedAt: null };
+const hugo: Member = { id: 'm2', displayName: 'Hugo', role: 'member', sortOrder: 1, archivedAt: null, sittingOutAt: null };
 const key = (element: Element, k: string) => flushSync(() => element.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true })));
 const pointer = (element: Element, type: string, target: Element) => {
   target.scrollIntoView({ block: 'center' });
