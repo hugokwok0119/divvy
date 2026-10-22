@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { env } from 'cloudflare:test';
 import { drizzle } from 'drizzle-orm/d1';
-import { households, householdMembers } from '../../worker/db/schema';
+import { households, householdMembers, memberAccounts } from '../../worker/db/schema';
 import { resolveSignIn, linkUserToMember } from '../../worker/lib/onboarding';
 
 const db = () => drizzle(env.DB);
@@ -62,6 +62,8 @@ describe('linkUserToMember', () => {
     await linkUserToMember(db(), 'u1', 'm1');
     const rows = await db().select().from(householdMembers);
     expect(rows[0].userId).toBe('u1');
+    expect(await db().select({ memberId: memberAccounts.memberId, householdId: memberAccounts.householdId, userId: memberAccounts.userId })
+      .from(memberAccounts)).toEqual([{ memberId: 'm1', householdId: 'h1', userId: 'u1' }]);
   });
 
   it('never relinks a member slot that already has an account', async () => {

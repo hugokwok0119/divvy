@@ -51,7 +51,8 @@ export async function linkUserToMember(
     .set({ userId })
     .where(and(eq(householdMembers.id, memberId), isNull(householdMembers.userId)));
 
-  if (result.meta.changes !== 1) {
+  // D1 counts the mirror_member_account_update trigger's insert too, so success can report 2.
+  if (result.meta.changes === 0) {
     throw new Error(`Member ${memberId} is already linked to an account`);
   }
 }
