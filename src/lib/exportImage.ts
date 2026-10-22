@@ -23,35 +23,41 @@ const toDataUrl = async (url: string) => {
   });
 };
 
-let interCss: Promise<string | undefined> | undefined;
+let interCss: string | undefined;
 /**
  * html-to-image cannot read the cross-origin Google Fonts stylesheet (SecurityError on
- * cssRules), so Inter is fetched and inlined here. Undefined means: fall back to system fonts.
+ * cssRules), so Inter is fetched and inlined here. Undefined means: fall back to system fonts,
+ * which is what happens wherever the CSP's connect-src blocks Google Fonts. Only a success is
+ * cached, so a transient failure is retried on the next download.
  */
-function interFontEmbedCss(): Promise<string | undefined> {
-  interCss ??= (async () => {
+async function interFontEmbedCss(): Promise<string | undefined> {
+  if (interCss) return interCss;
+  try {
     const href = [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')]
       .map((link) => link.href).find((h) => h.includes('fonts.googleapis.com'));
     if (!href) return undefined;
     const { css, urls } = latinFontFaces(await (await fetch(href)).text());
     let inlined = css;
     for (const url of urls) inlined = inlined.replaceAll(url, await toDataUrl(url));
-    return inlined;
-  })().catch(() => undefined);
-  return interCss;
+    return (interCss = inlined);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Rasterizes `node` to a JPG and saves it as `fileName`. */
 export async function downloadJpeg(node: HTMLElement, fileName: string): Promise<void> {
   await document.fonts.ready;
-  const [{ toJpeg }, fontEmbedCSS] = await Promise.all([import('html-to-image'), interFontEmbedCss()]);
-  const dataUrl = await toJpeg(node, {
+  const [{ toCanvas }, fontEmbedCSS] = await Promise.all([import('html-to-image'), interFontEmbedCss()]);
+  const canvas = await toCanvas(node, {
     backgroundColor: '#ffffff',
-    quality: 0.92,
     pixelRatio: safePixelRatio(node.scrollWidth, node.scrollHeight),
     ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }),
   });
-  const url = URL.createObjectURL(await (await fetch(dataUrl)).blob());
+  // canvas.toBlob, not fetch(dataUrl): the production CSP (connect-src 'self') blocks data: fetches.
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('JPG encoding failed'))), 'image/jpeg', 0.92));
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;

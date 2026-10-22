@@ -22,11 +22,13 @@ export function extraCentMembers(
   const weights: Record<string, number> = tx.splitType === 'custom'
     ? (JSON.parse(tx.splitRuleJson ?? '{}') as { percentages?: Record<string, number> }).percentages ?? {}
     : Object.fromEntries(Object.keys(shares).map((id) => [id, 1]));
-  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  // Sum like distributeByWeight (positive weights, sorted ids) so float totals agree bit for bit.
+  const total = Object.keys(weights).filter((id) => weights[id] > 0).sort().reduce((a, id) => a + weights[id], 0);
   if (total <= 0) return [];
-  // Mirrors distributeByWeight: every share starts at the floor, leftover cents add 1 each.
+  // Every share starts at the floor and leftover cents add 1 each. The epsilon stops float
+  // percentages from amount mode (1.9999…) reading as an uneven split.
   return Object.keys(shares).filter((id) =>
-    Math.abs(shares[id]) > Math.floor((Math.abs(tx.amountCents) * (weights[id] ?? 0)) / total));
+    Math.abs(shares[id]) > Math.floor((Math.abs(tx.amountCents) * (weights[id] ?? 0)) / total + 1e-9));
 }
 
 export function buildCycleSummary(input: {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildCycleSummary, extraCentMembers, summaryFileName } from '../src/lib/cycleSummary';
 import { computeSettlement, computeShares, type SplitRule, type SplitType } from '../src/lib/settlement';
 import { memberColorAt } from '../src/lib/memberColors';
+import { percentagesFromAmounts } from '../src/lib/percentages';
 import type { Cycle, Member, Transaction } from '../src/types';
 
 const member = (id: string, archivedAt: number | null = null): Member =>
@@ -45,6 +46,12 @@ describe('extraCentMembers', () => {
   it('never marks a single split or an exact split', () => {
     expect(extraCentMembers(tx('t', '2026-10-03', 1001, 'a', 'single', { memberId: 'a' }, abc))).toEqual([]);
     expect(extraCentMembers(tx('t', '2026-10-03', 18900, 'a', 'equal', null, ['a', 'b', 'c', 'd']))).toEqual([]);
+  });
+  it('does not mark exact amount-based custom splits despite float percentages', () => {
+    // Amount mode saves 1¢/2¢ of 3¢ as {33.333…, 66.666…}; 3 × 66.666…/100 is 1.999… in floats.
+    const row = tx('t', '2026-10-03', 3, 'a', 'custom', { percentages: percentagesFromAmounts({ a: 1, b: 2 }) }, ['a', 'b']);
+    expect(JSON.parse(row.splitSharesJson)).toEqual({ a: 1, b: 2 });
+    expect(extraCentMembers(row)).toEqual([]);
   });
   it('compares absolute values for refunds', () => {
     expect(extraCentMembers(tx('t', '2026-10-03', -1000, 'a', 'equal', null, abc))).toEqual(['a']);

@@ -33,6 +33,11 @@ describe('CycleSummaryImage, summary only', () => {
     expect(html).not.toContain('* Includes an extra 1¢');
     expect(html).toMatch(/data-summary-image="true"[^>]*style="[^"]*width:400px/);
   });
+  it('wraps long person names so the Net column stays inside the 400px image', () => {
+    const long = { ...summary, people: [person('h', 'Alexandra Richardson-Montgomery', 123456, 23456)] };
+    const cell = render(long, false).match(/<td style="([^"]*)">(?:<span[^>]*><\/span>)?Alexandra/);
+    expect(cell?.[1]).toContain('white-space:normal');
+  });
   it('signs Net so it never relies on color alone', () => {
     expect(html).toContain('+$5.66');
     expect(html).toContain('−$2.33');

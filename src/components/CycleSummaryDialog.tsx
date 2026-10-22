@@ -57,6 +57,9 @@ export default function CycleSummaryDialog({ summary, closedLabel, onClose }: {
       aria-busy={busy}
       className="m-auto w-[calc(100vw-32px)] max-w-[560px] max-h-[calc(100dvh-32px)] rounded-2xl border border-slate-200 bg-white p-0 text-slate-700 shadow-[0_20px_50px_#0f172a33] backdrop:bg-black/40 backdrop:backdrop-blur-sm"
       onCancel={(event) => { event.preventDefault(); close(); }}
+      // A repeated Escape fires a non-cancelable cancel and closes natively; keep React in sync.
+      // The event is async, so skip closes from our own cleanup (unmounted, or reopened by StrictMode).
+      onClose={() => { if (dialog.current && !dialog.current.open) onClose(); }}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return;
         const box = event.currentTarget.getBoundingClientRect();

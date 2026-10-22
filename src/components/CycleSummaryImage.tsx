@@ -74,7 +74,8 @@ function PeopleTable({ people }: { people: SummaryPerson[] }) {
         <tbody>
           {people.map((p) => (
             <tr key={p.id}>
-              <td style={td}><Dot color={p.color} />{p.name}</td>
+              {/* Names wrap; the export captures only the fixed 400px box, so overflow would crop Net. */}
+              <td style={{ ...td, whiteSpace: 'normal', overflowWrap: 'anywhere' }}><Dot color={p.color} />{p.name}</td>
               <td style={num}>{formatCentsWithSymbol(p.paidCents)}</td>
               <td style={num}>{formatCentsWithSymbol(p.shareCents)}</td>
               <td style={{ ...num, fontWeight: 600, color: netColor(p.netCents) }}>{signed(p.netCents)}</td>
