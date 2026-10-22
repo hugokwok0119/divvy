@@ -23,14 +23,17 @@ const GroupSwitcher: React.FC<Props> = ({ groups, currentId, canCreate, onSelect
   const wrap = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const opener = useRef<HTMLElement | null>(null);
   const current = groups.find((g) => g.id === currentId);
 
   const items = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
-  const close = (restore: boolean) => { setOpen(false); if (restore) button.current?.focus(); };
+  const close = (restore: boolean) => { setOpen(false); if (restore) (opener.current ?? button.current)?.focus(); };
 
   // On open (from this button or another opener), focus the current group, else the first item.
   useEffect(() => {
     if (!isOpen) return;
+    // Remember the opener (this button, or "Change" in the import area) for focus return.
+    opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     (menu.current?.querySelector<HTMLElement>('[aria-checked="true"]') ?? items()[0])?.focus();
     const onPointerDown = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('pointerdown', onPointerDown);

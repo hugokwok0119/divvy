@@ -56,11 +56,11 @@ const App: React.FC = () => {
       return null;
     }
   }, []);
-  // Reload on open so pending counts are fresh.
+  // Reload on open so pending counts are fresh; a failed reload keeps the cached list.
   const openSwitcher = useCallback((open: boolean) => {
     setSwitcherOpen(open);
-    if (open) void loadGroups();
-  }, [loadGroups]);
+    if (open) api.groups().then(setGroupList, () => {});
+  }, []);
 
   const refresh = useCallback(() => {
     // Each mutation waits for its own snapshot, after earlier refreshes finish.
