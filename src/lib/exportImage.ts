@@ -6,13 +6,6 @@ export function safePixelRatio(width: number, height: number, max = 2, maxArea =
   return Math.min(max, Math.sqrt(maxArea / (width * height)));
 }
 
-/** The `latin` @font-face blocks of a Google Fonts css2 response, and their distinct font URLs. */
-export function latinFontFaces(css: string): { css: string; urls: string[] } {
-  const blocks = css.split('/*').filter((b) => b.startsWith(' latin */')).map((b) => b.slice(' latin */'.length));
-  const urls = [...new Set(blocks.flatMap((b) => [...b.matchAll(/url\(([^)]+)\)/g)].map((m) => m[1])))];
-  return { css: blocks.join('\n'), urls };
-}
-
 const toDataUrl = async (url: string) => {
   const blob = await (await fetch(url)).blob();
   return new Promise<string>((resolve, reject) => {
@@ -25,21 +18,15 @@ const toDataUrl = async (url: string) => {
 
 let interCss: string | undefined;
 /**
- * html-to-image cannot read the cross-origin Google Fonts stylesheet (SecurityError on
- * cssRules), so Inter is fetched and inlined here. Undefined means: fall back to system fonts,
- * which is what happens wherever the CSP's connect-src blocks Google Fonts. Only a success is
- * cached, so a transient failure is retried on the next download.
+ * html-to-image needs fonts inlined as data URLs, so the self-hosted Inter is fetched from the
+ * same origin (allowed by connect-src 'self'). Undefined means: fall back to system fonts. Only a
+ * success is cached, so a transient failure is retried on the next download.
  */
-async function interFontEmbedCss(): Promise<string | undefined> {
+export async function interFontEmbedCss(): Promise<string | undefined> {
   if (interCss) return interCss;
   try {
-    const href = [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')]
-      .map((link) => link.href).find((h) => h.includes('fonts.googleapis.com'));
-    if (!href) return undefined;
-    const { css, urls } = latinFontFaces(await (await fetch(href)).text());
-    let inlined = css;
-    for (const url of urls) inlined = inlined.replaceAll(url, await toDataUrl(url));
-    return (interCss = inlined);
+    const font = await toDataUrl('/fonts/inter-latin-wght.woff2');
+    return (interCss = `@font-face { font-family: 'Inter'; font-style: normal; font-weight: 300 700; src: url(${font}) format('woff2'); }`);
   } catch {
     return undefined;
   }

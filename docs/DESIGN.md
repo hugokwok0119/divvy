@@ -189,9 +189,11 @@ Each entry gives the date, the decision and the reason.
     out of public commit metadata.
 12. **2026-10-21. Share a cycle as a client-side JPG with one column per person.** The summary
     renders as a React component and `html-to-image` turns it into a JPG, loaded only when someone
-    downloads. The library cannot read the cross-origin Google Fonts stylesheet, so the export
-    tries to fetch and inline Inter itself. The production CSP (`connect-src 'self'`) blocks that
-    fetch, so deployed images use the system sans-serif. The JPG is encoded with `canvas.toBlob`,
+    downloads. Inter is self-hosted under `public/fonts/` (SIL OFL), so the export fetches it from
+    the same origin and inlines it, which the production CSP (`connect-src 'self'`) allows. Loading
+    it from Google Fonts was rejected: the library cannot read that cross-origin stylesheet, and
+    the CSP blocks fetching it, so deployed images fell back to the system sans-serif. Loosening
+    the CSP was also rejected. The JPG is encoded with `canvas.toBlob`,
     because the same CSP blocks fetching a `data:` URL. A one-column-per-person grid lets each person read
     straight down their own column, and each column adds up to their share. Rejected: drawing
     the image by hand on a canvas (much more code), a server-rendered image (a server change for a

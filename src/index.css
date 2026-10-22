@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Self-hosted so the app and the JPG export load Inter under the CSP; see public/fonts/OFL.txt. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-wght.woff2') format('woff2');
+}
+
 /* Four typography roles shared by utility classes and scoped component CSS. */
 :root {
   --font-size-heading1: 24px;
