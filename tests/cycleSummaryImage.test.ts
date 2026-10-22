@@ -12,12 +12,15 @@ const summary: CycleSummary = {
   dateStart: '2026-10-03', dateEnd: '2026-10-04', totalCents: 1100,
   people: [person('h', 'Hugo', 1000, 434), person('y', 'Yuki', 100, 333), person('k', 'Ken', 0, 333)],
   items: [
-    { id: 't1', date: '2026-10-03', name: 'Blue Bottle Coffee', payerName: 'Hugo', amountCents: 1000,
+    { id: 't1', date: '2026-10-03', name: 'Blue Bottle Coffee', payerName: 'Hugo', payerColor: '#f59e0b', amountCents: 1000,
       shares: { h: 334, y: 333, k: 333 }, extraCent: ['h'] },
-    { id: 't2', date: '2026-10-04', name: 'Parking', payerName: 'Yuki', amountCents: 100,
+    { id: 't2', date: '2026-10-04', name: 'Parking', payerName: 'Yuki', payerColor: '#3b82f6', amountCents: 100,
       shares: { h: 100 }, extraCent: [] },
   ],
-  transfers: [{ fromName: 'Yuki', toName: 'Hugo', amountCents: 233 }, { fromName: 'Ken', toName: 'Hugo', amountCents: 333 }],
+  transfers: [
+    { fromName: 'Yuki', fromColor: '#3b82f6', toName: 'Hugo', amountCents: 233 },
+    { fromName: 'Ken', fromColor: '#ec4899', toName: 'Hugo', amountCents: 333 },
+  ],
 };
 
 const render = (s: CycleSummary, detailed: boolean) =>
@@ -79,6 +82,16 @@ describe('CycleSummaryImage, Settle up', () => {
   it('keeps the given transfer order', () => {
     const html = render(summary, false);
     expect(html.indexOf('Yuki</b> pays')).toBeLessThan(html.indexOf('Ken</b> pays'));
+  });
+  it('puts the payer color dot before each Settle up line', () => {
+    const html = render(summary, false);
+    expect(html).toMatch(/<span[^>]*background:#3b82f6[^>]*><\/span><b[^>]*>Yuki<\/b> pays/);
+    expect(html).toMatch(/<span[^>]*background:#ec4899[^>]*><\/span><b[^>]*>Ken<\/b> pays/);
+  });
+  it('puts the payer color dot before Paid by in the grid', () => {
+    const html = render(summary, true);
+    expect(html).toMatch(/<span[^>]*background:#f59e0b[^>]*><\/span>Paid by Hugo/);
+    expect(html).toMatch(/<span[^>]*background:#3b82f6[^>]*><\/span>Paid by Yuki/);
   });
   it('says everyone is square with no transfers', () => {
     expect(render({ ...summary, transfers: [] }, false)).toContain('Everyone is square.');

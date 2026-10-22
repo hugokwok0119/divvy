@@ -52,7 +52,7 @@ function SettleUp({ summary, columns }: { summary: CycleSummary; columns: number
         <div style={{ columns, columnGap: 48, maxWidth: columns * 300 + (columns - 1) * 48 }}>
           {summary.transfers.map((t, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '4px 0', color: '#cbd5e1', breakInside: 'avoid' }}>
-              <span><b style={{ color: '#fff' }}>{t.fromName}</b> pays <b style={{ color: '#fff' }}>{t.toName}</b></span>
+              <span><Dot color={t.fromColor} /><b style={{ color: '#fff' }}>{t.fromName}</b> pays <b style={{ color: '#fff' }}>{t.toName}</b></span>
               <b style={{ color: '#fff' }}>{formatCentsWithSymbol(t.amountCents)}</b>
             </div>
           ))}
@@ -117,7 +117,7 @@ function ItemGrid({ summary }: { summary: CycleSummary }) {
             <td style={{ ...td, color: MUTED }}>{row > 0 && summary.items[row - 1].date === item.date ? '' : formatDateSpan(item.date, item.date).replace(/, \d{4}$/, '')}</td>
             <td style={{ ...td, maxWidth: 240, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
               {item.name}
-              <div className="text-body2" style={{ color: MUTED }}>Paid by {item.payerName}</div>
+              <div className="text-body2" style={{ color: MUTED }}><Dot color={item.payerColor} />Paid by {item.payerName}</div>
             </td>
             <td style={{ ...amount, fontWeight: 600 }}>{formatCentsWithSymbol(item.amountCents)}</td>
             {people.map((p, i) => item.shares[p.id] === undefined
