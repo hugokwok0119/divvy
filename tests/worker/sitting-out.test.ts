@@ -94,6 +94,21 @@ describe('sitting out', () => {
     expect((await sitOut('m3', false)).status).toBe(200);
   });
 
+  it('splits a bulk-imported equal row only across members who are in', async () => {
+    await sitOut('m3');
+    expect((await send('/transactions/bulk', 'POST', { transactions: [tx('t1')] })).status).toBe(201);
+    expect(await shares('t1')).toEqual({ m1: 450, m2: 450 });
+  });
+
+  it('refuses to archive the last member who is in', async () => {
+    await sitOut('m1');
+    await sitOut('m3');
+    const res = await send('/members/m2', 'DELETE');
+    expect(res.status).toBe(409);
+    expect(await res.text()).toMatch(/At least one member must stay in/);
+    expect((await repo().members()).every((m) => m.archivedAt === null)).toBe(true);
+  });
+
   it('rejects a non-boolean and an unknown member', async () => {
     expect((await send('/members/m3/sitting-out', 'PUT', { sittingOut: 'yes' })).status).toBe(400);
     expect((await sitOut('nope')).status).toBe(404);

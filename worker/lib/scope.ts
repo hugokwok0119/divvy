@@ -1123,6 +1123,9 @@ export class ScopedRepository {
     const [row] = await this.db.select({ role: householdMembers.role }).from(householdMembers).where(member).limit(1);
     if (!row) throw new HTTPException(404, { message: 'Member not found' });
     if (row.role === 'owner') throw new HTTPException(409, { message: 'The household owner cannot be removed' });
+    if (splitRosterOf(await this.members()).every((other) => other === id)) {
+      throw new HTTPException(409, { message: 'At least one member must stay in' });
+    }
     // Their cards go too, so pickers and statement reminders drop them; expenses keep the card name snapshot.
     await this.db.batch([
       this.db.update(householdMembers).set({ archivedAt: Date.now() }).where(member),
@@ -1135,6 +1138,7 @@ export class ScopedRepository {
   async setSittingOut(id: string, sittingOut: boolean): Promise<PublicMember> {
     const members = await this.members();
     if (!members.some((m) => m.id === id && m.archivedAt === null)) throw new HTTPException(404, { message: 'Member not found' });
+    // shortcut: concurrent toggles can leave nobody in; if more than one person can toggle, use a conditional UPDATE and decide 409 by re-reading the row, not meta.changes.
     if (sittingOut && splitRosterOf(members).every((other) => other === id)) {
       throw new HTTPException(409, { message: 'At least one member must stay in' });
     }
