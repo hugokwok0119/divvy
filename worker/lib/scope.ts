@@ -1092,10 +1092,16 @@ export class ScopedRepository {
         message: 'Resolve this participant\'s queued items before archiving them',
       });
     }
-    const result = await this.db.update(householdMembers)
-      .set({ archivedAt: Date.now() })
-      .where(and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId)));
-    if (result.meta.changes !== 1) throw new HTTPException(404, { message: 'Member not found' });
+    const member = and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId));
+    const [row] = await this.db.select({ role: householdMembers.role }).from(householdMembers).where(member).limit(1);
+    if (!row) throw new HTTPException(404, { message: 'Member not found' });
+    if (row.role === 'owner') throw new HTTPException(409, { message: 'The household owner cannot be removed' });
+    // Their cards go too, so pickers and statement reminders drop them; expenses keep the card name snapshot.
+    await this.db.batch([
+      this.db.update(householdMembers).set({ archivedAt: Date.now() }).where(member),
+      this.db.update(cards).set({ archived: 1 })
+        .where(and(eq(cards.memberId, id), eq(cards.householdId, this.householdId))),
+    ]);
   }
 
   async upsertCard(input: {

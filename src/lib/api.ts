@@ -148,6 +148,9 @@ export const api = {
   reorderCards: (ids: string[]) =>
     request<unknown>('/api/cards/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
 
+  deleteMember: (id: string) =>
+    request<void>(`/api/members/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
   reorderMembers: (ids: string[]) =>
     request<unknown>('/api/members/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
 
