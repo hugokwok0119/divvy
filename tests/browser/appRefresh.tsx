@@ -151,4 +151,18 @@ await check('a failed group reload keeps the app and the cached list', async (vi
   assert(view.dates().length === 2, 'Ledger must stay mounted');
   assert(view.host.querySelector('[role="menuitemradio"]')?.textContent?.includes('Test household'), 'Menu must keep the cached list');
 });
+await check('picking a group from Change focuses the header switcher after the remount', async (view) => {
+  const groups = await api.groups();
+  api.groups = async () => ({ ...groups, groups: [...groups.groups, { ...groups.groups[0], id: 'h2', name: 'Trip' }] });
+  const change = [...view.host.querySelectorAll('button')].find((button) => button.textContent === 'Change')!;
+  change.focus();
+  flushSync(() => change.click());
+  await waitFor(() => !!view.host.querySelector('[role="menuitemradio"]:nth-of-type(2)'), 'Second group not listed');
+  flushSync(() => view.host.querySelector<HTMLButtonElement>('[role="menuitemradio"]:nth-of-type(2)')!.click());
+  await waitFor(() => view.requests.length === 1, 'Switch did not refresh');
+  view.requests[0].snapshot.household.id = 'h2';
+  view.requests[0].resolve();
+  await waitFor(() => view.dates().length === 2 && !view.host.contains(change), 'Ledger did not remount for the new group');
+  assert(document.activeElement === view.host.querySelector('#group-switcher'), `Focus went to ${document.activeElement?.tagName}`);
+});
 document.getElementById('result')!.textContent = `${results.filter((result) => result.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;

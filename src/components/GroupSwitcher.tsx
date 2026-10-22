@@ -86,7 +86,8 @@ const GroupSwitcher: React.FC<Props> = ({ groups, currentId, canCreate, onSelect
               role="menuitemradio"
               aria-checked={g.id === currentId}
               tabIndex={-1}
-              onClick={() => { close(true); if (g.id !== currentId) onSelect(g.id); }}
+              // The header button survives the group remount; "Change" in the import area does not.
+              onClick={() => { close(false); button.current?.focus(); if (g.id !== currentId) onSelect(g.id); }}
               className={item}
             >
               <Check size={16} aria-hidden="true" className={`shrink-0 text-blue-600 ${g.id === currentId ? '' : 'invisible'}`} />
