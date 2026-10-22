@@ -421,6 +421,7 @@ const App: React.FC = () => {
             onBack={() => setCurrentView('dashboard')}
             onChanged={refresh}
             showToast={showToast}
+            householdName={data.household.name}
           />
         )}
 

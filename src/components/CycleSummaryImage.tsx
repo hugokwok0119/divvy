@@ -104,7 +104,7 @@ function ItemGrid({ summary }: { summary: CycleSummary }) {
     );
   };
   return (
-    <table style={{ borderCollapse: 'collapse' }}>
+    <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
       <thead className="text-body2"><tr>
         <th style={th}>Date</th><th style={th}>Item</th>
         <th style={{ ...th, textAlign: 'right', borderRight: `1px solid #cbd5e1` }}>Amount</th>

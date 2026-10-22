@@ -74,7 +74,7 @@ function mount() {
   flushSync(() => root.render(null));
   flushSync(() => root.render(<HistoryPage members={members} cards={cards} categories={['Groceries']} role="member"
     onBack={() => {}} onChanged={async () => { throw new Error('Inspection triggered refresh after a mutation.'); }}
-    showToast={message => { throw new Error(message); }} />));
+    showToast={message => { throw new Error(message); }} householdName="Test Household" />));
 }
 async function selectCycle(status: Cycle['status']) {
   await until(() => host.querySelector('button[aria-pressed]'));

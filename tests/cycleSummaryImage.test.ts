@@ -44,6 +44,9 @@ describe('CycleSummaryImage, detailed grid', () => {
   it('sizes the image to its table', () => {
     expect(html).toMatch(/data-summary-image="true"[^>]*style="[^"]*width:max-content;min-width:400px/);
   });
+  it('stretches the grid to the image width when the header is wider', () => {
+    expect(html).toMatch(/<table style="[^"]*min-width:100%/);
+  });
   it('puts person columns in member order', () => {
     const head = html.slice(html.indexOf('<thead'), html.indexOf('</thead>'));
     expect(head.indexOf('Hugo')).toBeLessThan(head.indexOf('Yuki'));
