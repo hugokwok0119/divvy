@@ -221,8 +221,9 @@ Each entry gives the date, the decision and the reason.
 15. **2026-10-22. Account links live in `member_accounts`.** `household_members.user_id` is
     unique, so one account could hold a slot in only one group. Triggers copy that column into
     `member_accounts`, so the code that still writes `user_id` keeps working until a later release
-    drops it. Rejected: rebuilding `household_members` without `UNIQUE`, which breaks the rule that
-    migrations only add tables, columns, indexes and triggers.
+    drops it. The migration is additive: it adds a table, columns, indexes and two triggers.
+    Migration 0005 already added triggers. Rejected: rebuilding `household_members` without
+    `UNIQUE`, which is not additive.
 16. **2026-10-22. Requests name their group in the `x-divvy-group` header.** Rejected: a
     `/api/groups/:id/...` path prefix, which rewrites every route and the demo route table, and a
     cookie, which goes stale across tabs.
