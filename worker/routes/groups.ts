@@ -10,8 +10,8 @@ groupRoutes.get('/', async (c) => c.json(await listGroups(c)));
 
 groupRoutes.post('/', async (c) => {
   // Refuse a missing session or a non-owner before reporting body errors.
-  await requireGroupCreator(c);
+  const session = await requireGroupCreator(c);
   const { value, fields } = validateGroupInput(await c.req.json().catch(() => null));
   if (!value) return c.json({ error: 'Invalid group', fields }, 400);
-  return c.json(await createGroup(c, value), 201);
+  return c.json(await createGroup(c, session, value), 201);
 });

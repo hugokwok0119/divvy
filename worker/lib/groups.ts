@@ -23,27 +23,10 @@ export interface GroupSummary {
 
 type GroupContext = Context<{ Bindings: Env }>;
 
-async function readSession(c: GroupContext) {
-  const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user) throw new HTTPException(401, { message: 'Not signed in' });
-  return session;
-}
-
-// The POST route checks the creator before validating, then createGroup checks again; one read serves both.
-const sessions = new WeakMap<Request, ReturnType<typeof readSession>>();
-
-function requireSession(c: GroupContext) {
-  let session = sessions.get(c.req.raw);
-  if (!session) {
-    session = readSession(c);
-    sessions.set(c.req.raw, session);
-  }
-  return session;
-}
-
 /** 401 without a session, 403 unless the account is the configured owner. */
 export async function requireGroupCreator(c: GroupContext) {
-  const session = await requireSession(c);
+  const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user) throw new HTTPException(401, { message: 'Not signed in' });
   if (!isOwnerEmail(session.user.email, c.env.OWNER_EMAIL)) {
     throw new HTTPException(403, { message: 'Only the owner can create groups' });
   }
@@ -51,7 +34,8 @@ export async function requireGroupCreator(c: GroupContext) {
 }
 
 export async function listGroups(c: GroupContext): Promise<{ groups: GroupSummary[]; canCreate: boolean }> {
-  const session = await requireSession(c);
+  const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user) throw new HTTPException(401, { message: 'Not signed in' });
   const rows = await drizzle(c.env.DB)
     .select({
       id: households.id,
@@ -77,11 +61,12 @@ export async function listGroups(c: GroupContext): Promise<{ groups: GroupSummar
   return { groups, canCreate: isOwnerEmail(session.user.email, c.env.OWNER_EMAIL) };
 }
 
+/** The caller passes the session from requireGroupCreator, which has already checked it. */
 export async function createGroup(
   c: GroupContext,
+  session: Awaited<ReturnType<typeof requireGroupCreator>>,
   input: { name: string; currencyCode: string; timezone: string },
 ): Promise<GroupSummary> {
-  const session = await requireGroupCreator(c);
   const db = drizzle(c.env.DB);
   const id = crypto.randomUUID();
   const memberId = crypto.randomUUID();
