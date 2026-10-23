@@ -591,9 +591,46 @@ export function validateHouseholdPatch(body: unknown): { value: Record<string, u
       fields.allowedEmails = 'Expected an array of { email, memberId }';
     } else value.allowedEmails = list;
   }
+  if ('rentReminder' in body) {
+    if (typeof body.rentReminder !== 'boolean') fields.rentReminder = 'Expected true or false';
+    else value.rentReminder = body.rentReminder;
+  }
 
   if (Object.keys(fields).length > 0) return { value: null, fields };
   return { value, fields: {} };
+}
+
+/** Body of POST /api/groups. */
+export function validateGroupInput(body: unknown): { value: { name: string; currencyCode: string; timezone: string } | null; fields: Fields } {
+  if (!isPlainObject(body)) return { value: null, fields: { _body: 'Expected a JSON object' } };
+  const fields: Fields = {};
+  const name = trimmedString(body.name, NAME_MAX_LEN);
+  if (name === null) fields.name = 'Expected a non-empty string';
+  const { currencyCode, timezone } = body;
+  if (typeof currencyCode !== 'string' || !/^[A-Z]{3}$/.test(currencyCode)) fields.currencyCode = 'Expected a three-letter code such as CAD';
+  if (!isTimeZone(timezone)) fields.timezone = 'Expected a time zone such as America/Vancouver';
+
+  if (Object.keys(fields).length > 0) return { value: null, fields };
+  return { value: { name: name!, currencyCode: currencyCode as string, timezone: timezone as string }, fields: {} };
+}
+
+function isTimeZone(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** `{ name }` where null resets a cycle to its default label. */
+export function validateCycleName(body: unknown): { value: { name: string | null } | null; fields: Fields } {
+  if (!isPlainObject(body) || !('name' in body)) return { value: null, fields: { name: 'Expected a name or null' } };
+  if (body.name === null) return { value: { name: null }, fields: {} };
+  const name = trimmedString(body.name, NAME_MAX_LEN);
+  if (name === null) return { value: null, fields: { name: `Expected 1 to ${NAME_MAX_LEN} characters, or null` } };
+  return { value: { name }, fields: {} };
 }
 
 export const REMINDER_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;

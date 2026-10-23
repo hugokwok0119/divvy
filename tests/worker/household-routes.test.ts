@@ -53,6 +53,33 @@ describe('archiveMember', () => {
   });
 });
 
+describe('DELETE /api/members/:id', () => {
+  it('archives a member added from Settings who never signed in, with their cards, keeping history', async () => {
+    await db().update(householdMembers).set({ role: 'owner', userId: 'u1' }).where(eq(householdMembers.id, 'm1'));
+    const cookie = await signInAs('u1', 'owner@example.com');
+    const owner = new ScopedRepository(db(), 'h1', { memberId: 'm1', displayName: 'Sam' });
+    await owner.upsertMember({ id: 'm3', displayName: 'New Member', sortOrder: 2 });
+    await owner.upsertCard({ id: 'c3', memberId: 'm3', name: 'Visa' });
+    await owner.insertTransaction({
+      id: 't1', date: '2024-06-09', store: 'Uber', amountCents: 300, category: 'Transport',
+      payerId: 'm3', cardId: 'c3', splitType: 'equal', splitRule: null,
+    });
+
+    const res = await workerApp.request('http://localhost/api/members/m3', { method: 'DELETE', headers: { Cookie: cookie } }, testEnv);
+
+    expect(res.status).toBe(204);
+    expect((await repo().members()).find((m) => m.id === 'm3')?.archivedAt).toBeTypeOf('number');
+    expect((await repo().cards()).find((c) => c.id === 'c3')?.archived).toBe(1);
+    expect((await repo().activeTransactions()).map((t) => [t.payerId, t.cardNameSnapshot])).toEqual([['m3', 'Visa']]);
+  });
+
+  it('refuses to archive the owner', async () => {
+    await db().update(householdMembers).set({ role: 'owner' }).where(eq(householdMembers.id, 'm1'));
+    await expect(repo().archiveMember('m1')).rejects.toMatchObject({ status: 409 });
+    expect((await repo().roster())).toEqual(['m1', 'm2']);
+  });
+});
+
 describe('archiveCard', () => {
   it('keeps the card row so history stays readable', async () => {
     await repo().upsertCard({ id: 'c1', memberId: 'm1', name: 'Amex' });
@@ -259,6 +286,30 @@ describe('PATCH /api/household custom categories', () => {
     expect(res.status).toBe(200);
     const boot = await workerApp.request('http://localhost/api/bootstrap', { headers: { Cookie: cookie } }, testEnv);
     expect(((await boot.json()) as { household: { customCategories: string[] } }).household.customCategories).toContain('Pets');
+  });
+});
+
+describe('PATCH /api/household rent reminder', () => {
+  const patch = async (body: unknown) => {
+    await db().update(householdMembers).set({ role: 'owner', userId: 'u1' }).where(eq(householdMembers.id, 'm1'));
+    const cookie = await signInAs('u1', 'owner@example.com');
+    const res = await workerApp.request('http://localhost/api/household', {
+      method: 'PATCH', headers: { 'content-type': 'application/json', Cookie: cookie }, body: JSON.stringify(body),
+    }, testEnv);
+    return { res, cookie };
+  };
+
+  it('saves the rent reminder setting', async () => {
+    const { res, cookie } = await patch({ rentReminder: false });
+    expect(res.status).toBe(200);
+    const boot = await workerApp.request('http://localhost/api/bootstrap', { headers: { Cookie: cookie } }, testEnv);
+    expect(((await boot.json()) as { household: { rentReminder: boolean } }).household.rentReminder).toBe(false);
+  });
+
+  it('rejects a non-boolean rent reminder', async () => {
+    const { res } = await patch({ rentReminder: 0 });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { fields: Record<string, string> }).fields.rentReminder).toBeTruthy();
   });
 });
 

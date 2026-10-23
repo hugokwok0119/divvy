@@ -7,61 +7,22 @@ import { CATEGORIES, generateId } from '../constants';
 import { permissionsFor, type Role } from '../lib/permissions';
 import { isDemoMode } from '../lib/demo-mode';
 import { useReorder } from './useReorder';
+import { ModalCard, secondaryButton } from './ModalCard';
 
 interface Props {
   members: Member[];
   cards: Card[];
   customCategories: string[];
+  rentReminder: boolean;
   role: Role;
   onBack: () => void;
   onChanged: () => Promise<void>;
   showToast: (message: string, type?: 'error' | 'success') => void;
 }
 
-const closeButton = 'inline-flex h-7 w-7 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-50';
-const secondaryButton = 'min-h-9 pointer-coarse:min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold hover:bg-slate-50 disabled:opacity-50';
 const gripButton = 'inline-flex h-7 w-7 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing';
 
-/** Floating confirmation card: Escape, outside click and the close button dismiss unless busy; focus returns on close. */
-const ModalCard: React.FC<{
-  title: string; busy?: boolean; onClose: () => void; restoreFocus: () => HTMLElement | null;
-  footer: React.ReactNode; children: React.ReactNode;
-}> = ({ title, busy = false, onClose, restoreFocus, footer, children }) => {
-  const ref = useRef<HTMLDialogElement>(null);
-  const titleId = React.useId();
-  const restore = useRef(restoreFocus);
-  restore.current = restoreFocus;
-  useEffect(() => {
-    const dialog = ref.current!;
-    dialog.showModal();
-    return () => { dialog.close(); restore.current()?.focus(); };
-  }, []);
-  const close = () => { if (!busy) onClose(); };
-  return (
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      className="m-auto w-[calc(100vw-32px)] max-w-[420px] rounded-xl border border-slate-200 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm"
-      onCancel={(e) => { e.preventDefault(); close(); }}
-      onClick={(e) => {
-        if (e.target !== e.currentTarget) return;
-        const box = e.currentTarget.getBoundingClientRect();
-        if (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) close();
-      }}
-    >
-      <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-3">
-        <h2 id={titleId} className="text-heading2 text-slate-800">{title}</h2>
-        <button type="button" aria-label="Close" disabled={busy} onClick={close} className={closeButton}>
-          <X size={18} aria-hidden="true" />
-        </button>
-      </header>
-      <div className="px-5 py-4 text-body1">{children}</div>
-      <footer className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">{footer}</footer>
-    </dialog>
-  );
-};
-
-const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role, onBack, onChanged, showToast }) => {
+const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentReminder, role, onBack, onChanged, showToast }) => {
   const perms = permissionsFor(role);
   const [newCategory, setNewCategory] = useState('');
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
@@ -74,6 +35,7 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
     saving: boolean;
   } | null>(null);
   const [cardDelete, setCardDelete] = useState<{ card: Card; opener: HTMLElement | null; deleting: boolean } | null>(null);
+  const [memberRemove, setMemberRemove] = useState<{ member: Member; opener: HTMLElement | null; removing: boolean } | null>(null);
   const [duplicateCategory, setDuplicateCategory] = useState<string | null>(null);
   const cardDialog = useRef<HTMLDialogElement>(null);
   const cardTrigger = useRef<HTMLElement | null>(null);
@@ -109,6 +71,13 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
     setCardDelete({ ...cardDelete, deleting: true });
     await withErrorToast(() => api.deleteCard(cardDelete.card.id), 'Could not delete that card.');
     setCardDelete(null);
+  };
+
+  const confirmMemberRemove = async () => {
+    if (!memberRemove) return;
+    setMemberRemove({ ...memberRemove, removing: true });
+    await withErrorToast(() => api.deleteMember(memberRemove.member.id), 'Could not remove that member.');
+    setMemberRemove(null);
   };
 
   const renameMember = (member: Member, displayName: string) => {
@@ -293,6 +262,23 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
         </ModalCard>
       )}
 
+      {memberRemove && (
+        <ModalCard
+          title={`Remove ${memberRemove.member.displayName}?`}
+          busy={memberRemove.removing}
+          onClose={() => setMemberRemove(null)}
+          restoreFocus={() => (memberRemove.opener?.isConnected ? memberRemove.opener : document.getElementById('add-member'))}
+          footer={<>
+            <button type="button" disabled={memberRemove.removing} onClick={() => setMemberRemove(null)} className={secondaryButton}>Cancel</button>
+            <button type="button" disabled={memberRemove.removing} aria-busy={memberRemove.removing} onClick={() => void confirmMemberRemove()} className="min-h-9 pointer-coarse:min-h-11 rounded-lg bg-red-600 px-4 py-1.5 text-white font-semibold hover:bg-red-700 disabled:opacity-50">
+              {memberRemove.removing ? 'Removing…' : 'Remove member'}
+            </button>
+          </>}
+        >
+          <p>They lose access to this household, and they and their cards leave member lists, split choices and card pickers. Expenses they paid or share keep their name and still count in balances.</p>
+        </ModalCard>
+      )}
+
       {duplicateCategory && (
         <ModalCard
           title="Category already exists"
@@ -312,7 +298,7 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-800">Members</h3>
               {perms.canManageMembers && (
-                <button type="button" onClick={addMember} className="text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-100 transition-colors">
+                <button type="button" id="add-member" onClick={addMember} className="text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-100 transition-colors">
                   + Add Member
                 </button>
               )}
@@ -343,6 +329,16 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
                       placeholder="Member name"
                       disabled={!perms.canManageMembers}
                     />
+                    {perms.canManageMembers && member.role !== 'owner' && (
+                      <button
+                        type="button"
+                        aria-label={`Remove member ${member.displayName}`}
+                        onClick={(e) => setMemberRemove({ member, opener: e.currentTarget, removing: false })}
+                        className="inline-flex h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-3 pl-3 border-l-2 border-slate-100 ml-3">
@@ -451,6 +447,28 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
               </div>
             </div>
           </section>
+
+          <section className="space-y-4">
+            <h3 className="text-heading2 text-slate-800">Reminders</h3>
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+              <label className="flex min-h-11 items-center gap-3 text-body1 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={rentReminder}
+                  disabled={role !== 'owner'}
+                  onChange={(e) => void withErrorToast(
+                    () => api.updateHousehold({ rentReminder: e.target.checked }).then(() => undefined),
+                    'Could not save the rent reminder.',
+                  )}
+                  className="h-5 w-5 accent-blue-600"
+                />
+                Remind me about rent at month end
+              </label>
+              {role !== 'owner' && (
+                <p className="text-body2 text-slate-400 italic">Only the household owner can change reminders.</p>
+              )}
+            </div>
+          </section>
         </div>
 
         {/* Data Section */}
@@ -467,7 +485,7 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, role,
             </p>
             {!isDemoMode() && perms.canExportData ? (
               <a
-                href={api.exportUrl}
+                href={api.exportUrl()}
                 download="divvy-export.json"
                 className="block w-full text-center rounded-lg border border-slate-300 py-2 text-sm font-medium hover:bg-slate-50 bg-white"
               >

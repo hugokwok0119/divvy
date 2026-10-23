@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { distributeByWeight, computeShares } from '../src/lib/settlement';
+import { distributeByWeight, computeShares, splitRosterOf } from '../src/lib/settlement';
 
 const sum = (s: Record<string, number>) => Object.values(s).reduce((a, b) => a + b, 0);
 
@@ -95,5 +95,11 @@ describe('computeShares', () => {
 
   it('rejects an empty roster', () => {
     expect(() => computeShares(100, 'equal', null, [])).toThrow(RangeError);
+  });
+});
+
+describe('splitRosterOf', () => {
+  it('leaves archived and sitting-out members out of the split roster', () => {
+    expect(splitRosterOf([{ id: 'a', archivedAt: null }, { id: 'b', archivedAt: 1 }, { id: 'c', archivedAt: null, sittingOutAt: 5 }])).toEqual(['a']);
   });
 });

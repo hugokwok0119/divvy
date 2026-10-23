@@ -6,7 +6,7 @@ import { percentagesFromAmounts } from '../src/lib/percentages';
 import type { Cycle, Member, Transaction } from '../src/types';
 
 const member = (id: string, archivedAt: number | null = null): Member =>
-  ({ id, displayName: id.toUpperCase(), role: 'member', sortOrder: 0, archivedAt });
+  ({ id, displayName: id.toUpperCase(), role: 'member', sortOrder: 0, archivedAt, sittingOutAt: null });
 
 const tx = (
   id: string, date: string, amountCents: number, payerId: string,
@@ -23,7 +23,7 @@ const tx = (
 
 const cycle = (status: 'closed' | 'settled'): Cycle => ({
   id: 'c1', status, settlementJson: null, closedByMemberId: null, closedByName: null,
-  closingSnapshotJson: null, closedAt: new Date(2026, 9, 6, 12).getTime(), settledAt: null,
+  closingSnapshotJson: null, closedAt: new Date(2026, 9, 6, 12).getTime(), settledAt: null, name: null,
 });
 
 const settlementFor = (rows: Transaction[], roster: string[]) => computeSettlement(
@@ -100,7 +100,8 @@ describe('buildCycleSummary', () => {
       { from: 'm3', to: 'm1', amountCents: 5 }, { from: 'm1', to: 'm2', amountCents: 7 },
     ] });
     expect(s.transfers).toEqual([
-      { fromName: 'M1', toName: 'M2', amountCents: 7 }, { fromName: 'M3', toName: 'M1', amountCents: 5 },
+      { fromName: 'M1', fromColor: memberColorAt(0), toName: 'M2', amountCents: 7 },
+      { fromName: 'M3', fromColor: memberColorAt(2), toName: 'M1', amountCents: 5 },
     ]);
   });
 
@@ -117,7 +118,7 @@ describe('buildCycleSummary', () => {
       householdName: 'Trip', cycle: cycle('closed'), members, settlement: { balances: {}, transfers: [] },
       transactions: [{ ...rows[0], favoriteName: 'Groceries run' }],
     });
-    expect(s.items[0]).toMatchObject({ name: 'Groceries run', payerName: 'M2' });
+    expect(s.items[0]).toMatchObject({ name: 'Groceries run', payerName: 'M2', payerColor: memberColorAt(1) });
   });
 });
 

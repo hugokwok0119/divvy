@@ -26,6 +26,7 @@ describe('buildDemoData', () => {
     expect(bootstrap.me).toEqual({ memberId: 'mem_alex', role: 'owner' });
     expect(bootstrap.household).toEqual({
       id: 'hh_demo', name: 'Demo Household', currencyCode: 'CAD', timezone: 'America/Vancouver', customCategories: [],
+      currentCycleName: null, rentReminder: true,
     });
     expect(bootstrap.members.map(({ id, displayName, role, sortOrder }) => ({ id, displayName, role, sortOrder }))).toEqual([
       { id: 'mem_alex', displayName: 'Alex', role: 'owner', sortOrder: 0 },
@@ -80,8 +81,8 @@ describe('buildDemoData', () => {
       // At the closed revision, so History does not report the cycle as changed since closing.
       const byId = new Map(archived.map((tx) => [tx.id, tx]));
       for (const tx of closing.transactions) expect(tx).toEqual({ ...byId.get(String(tx.id)), state: 'approved' });
-      expect(closing.members).toEqual(bootstrap.members.map(({ id, displayName, role, sortOrder, archivedAt }) =>
-        ({ id, displayName, role, sortOrder, archivedAt })));
+      expect(closing.members).toEqual(bootstrap.members.map(({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) =>
+        ({ id, displayName, role, sortOrder, archivedAt, sittingOutAt })));
       expect(archived.some((tx) => tx.cycleId === cycle.id)).toBe(true);
     }
     for (const tx of archived) expect(cycles.map((c) => c.id)).toContain(tx.cycleId);

@@ -2,16 +2,17 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import type { Transaction, QueueItem, QueueItemInput, Member, Card, TxPatch, ClosingSnapshot } from '../types';
 import { generateId } from '../constants';
-import { distributeByWeight } from '../lib/settlement';
+import { distributeByWeight, splitRosterOf } from '../lib/settlement';
 import { closedCycleCard, formatCents, formatCentsWithSymbol, parseAmountToCents } from '../lib/money';
 import { api, ApiError } from '../lib/api';
 import { amountWeightsError, customPercentagesError, formatPercentage, parsePercentageDraft, percentagesFromAmounts } from '../lib/percentages';
 import { buildCategorySuggestions } from '../lib/category';
 import { isDemoMode } from '../lib/demo-mode';
+import { MAX_BULK_BATCH } from '../../worker/lib/validate';
 import { memberColorAt } from '../lib/memberColors';
 import CategorySuggestions from './CategorySuggestions';
 import ExpenseHistory from './ExpenseHistory';
-import { Check, Eye, EyeOff, Filter, History, Pencil, Scissors, Star, Trash2, Undo2, Users, ArrowUpDown, FileText, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Filter, History, Pencil, Scissors, Star, Trash2, Undo2, Users, ArrowUpDown, FileText, Send, X } from 'lucide-react';
 import './TransactionList.css';
 import {
   approvedPatch,
@@ -71,6 +72,14 @@ export interface TransactionListProps {
   minDate?: string;
   maxDate?: string;
   readOnly?: boolean;
+  /** The group client saves go through; a section for another group passes apiFor(itsId). */
+  client?: typeof api;
+  /** Called when this list's selection goes from empty to non-empty. */
+  onSelectionStart?: () => void;
+  /** True while another list on screen owns the selection; turning true clears this one's. */
+  selectionElsewhere?: boolean;
+  /** Set only when the person belongs to two or more groups: Pending's bulk toolbar offers Send to group. */
+  onSendToGroup?: (rows: QueueItem[]) => void;
 }
 type SortKey = 'date' | 'store' | 'category' | 'amount';
 export function sortAriaValue(
@@ -101,6 +110,7 @@ export default function TransactionList(props: TransactionListProps) {
     categoryPreferences,
     readOnly = false,
     showToast,
+    client = api,
   } = props;
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
@@ -118,6 +128,9 @@ export default function TransactionList(props: TransactionListProps) {
   const bulkToolbarElement = useRef<HTMLDivElement>(null);
   const [bulkToolbarBounds, setBulkToolbarBounds] = useState({ left: 0, width: 0, height: 0 });
   const hasBulkSelection = !readOnly && selected.size > 0;
+  // One selection across lists, so only one fixed bulk toolbar exists at a time.
+  useEffect(() => { if (hasBulkSelection) props.onSelectionStart?.(); }, [hasBulkSelection]);
+  useEffect(() => { if (props.selectionElsewhere) setSelected(new Set()); }, [props.selectionElsewhere]);
   useLayoutEffect(() => {
     if (!hasBulkSelection) return;
     const ledger = ledgerElement.current, toolbar = bulkToolbarElement.current;
@@ -227,6 +240,7 @@ export default function TransactionList(props: TransactionListProps) {
   }, [!!bulkSplit]);
   useEffect(() => { if (!hasBulkSelection) setBulkSplit(null); }, [hasBulkSelection]);
   const activeMembers = members.filter((member) => !member.archivedAt);
+  const splitRoster = splitRosterOf(members);
   const rows: LedgerRow[] = useMemo(
     () =>
       mode === 'pending'
@@ -348,6 +362,8 @@ export default function TransactionList(props: TransactionListProps) {
     const draft = drafts[row.item.expenseId];
     return !!draft && JSON.stringify(draft.values) !== JSON.stringify(draftFrom(draft.base.item));
   };
+  // Actions that send the saved values must wait until no selected row has unsaved or stale edits.
+  const selectionUnsaved = selectedRows.some(row => dirty(row) || (!!drafts[row.item.expenseId] && drafts[row.item.expenseId].base.item.revision !== row.item.revision));
   useEffect(() => {
     props.onDraftStateChange?.({
       dirtyIds: transactions.filter((item) => {
@@ -556,7 +572,7 @@ export default function TransactionList(props: TransactionListProps) {
       percentages: Object.fromEntries(Object.entries(
         draft.splitType === 'custom' && draft.splitRule?.percentages
           ? draft.splitRule.percentages
-          : Object.fromEntries(activeMembers.map(member => [member.id, 100 / (activeMembers.length || 1)])),
+          : Object.fromEntries(activeMembers.map(member => [member.id, splitRoster.includes(member.id) ? 100 / (splitRoster.length || 1) : 0])),
       ).map(([id, value]) => [id, String(value)])),
     },
   });
@@ -695,7 +711,7 @@ export default function TransactionList(props: TransactionListProps) {
     const allocationSummary = Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => `${members.find(m => m.id === id)?.displayName ?? 'Former member'} ${formatPercentage(value)}`).join(' · ');
     const indicator = (background: string) => <span aria-hidden="true" className="ledger-split-line" style={{ background }} />;
     return <div className="ledger-split" aria-label="Split between" data-read-only={readOnly || undefined}>
-      <button type="button" className="ledger-icon ledger-split-button ledger-equal" aria-label={`Split ${draft.store || 'expense'} equally`} title="Everyone equally" aria-pressed={draft.splitType === 'equal'} disabled={disabled || readOnly} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'equal', splitRule: null })); closeAllocation(); }}>
+      <button type="button" className="ledger-icon ledger-split-button ledger-equal" aria-label={`Split ${draft.store || 'expense'} equally`} title="Equally among members who are in" aria-pressed={draft.splitType === 'equal'} disabled={disabled || readOnly} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'equal', splitRule: null })); closeAllocation(); }}>
         <Users size={14} aria-hidden="true" />{indicator('#64748b')}
       </button>
       {splitMembers.map((member) => <button key={member.id} type="button" className="ledger-icon ledger-split-button ledger-person" style={{ '--member-color': memberColor(member.id) } as React.CSSProperties} aria-label={`Assign ${draft.store || 'expense'} to ${member.displayName}`} title={member.displayName} aria-pressed={chosen === member.id} disabled={disabled || readOnly || (!!member.archivedAt && chosen !== member.id)} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'single', splitRule: { memberId: member.id } })); closeAllocation(); }}>
@@ -901,7 +917,7 @@ export default function TransactionList(props: TransactionListProps) {
                 if (!targets.length) return;
                 moveTrigger.current = event.currentTarget; setFeedback(''); setMove({ row: targets[0], targets, note: '', noteEdited: false });
               }}><Undo2 size={15} aria-hidden="true" /></button>}
-              {mode === 'approved' && props.onUpdate && <button type="button" className={`${button} ledger-icon`} aria-label={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} title={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} aria-pressed={allSelectedStarred} disabled={allBusy || busy.size > 0 || selectedRows.some(row => dirty(row) || (!!drafts[row.item.expenseId] && drafts[row.item.expenseId].base.item.revision !== row.item.revision))} onClick={() => void batch(async row => { if (row.kind === 'approved') await starExpense(row, !allSelectedStarred); })}><Star size={15} fill={allSelectedStarred ? 'currentColor' : 'none'} aria-hidden="true" /></button>}
+              {mode === 'approved' && props.onUpdate && <button type="button" className={`${button} ledger-icon`} aria-label={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} title={allSelectedStarred ? 'Unstar selected expenses' : 'Star selected expenses'} aria-pressed={allSelectedStarred} disabled={allBusy || busy.size > 0 || selectionUnsaved} onClick={() => void batch(async row => { if (row.kind === 'approved') await starExpense(row, !allSelectedStarred); })}><Star size={15} fill={allSelectedStarred ? 'currentColor' : 'none'} aria-hidden="true" /></button>}
               <button
                 aria-label="Delete selected" title="Delete selected expenses" className={`${button} ledger-icon`}
                 disabled={allBusy || busy.size > 0}
@@ -921,6 +937,12 @@ export default function TransactionList(props: TransactionListProps) {
               >
                 Save
               </button>}
+              {mode === 'pending' && props.onSendToGroup && <button
+                type="button" id="send-to-group" className={`${button} ledger-icon`} aria-label="Send to group"
+                title={selectionUnsaved ? 'Save or cancel unsaved changes first' : selected.size > MAX_BULK_BATCH ? `Select ${MAX_BULK_BATCH} rows or fewer` : 'Send to group'}
+                disabled={allBusy || busy.size > 0 || saving.size > 0 || selectionUnsaved || selected.size > MAX_BULK_BATCH}
+                onClick={() => props.onSendToGroup!(selectedRows.flatMap(row => row.kind === 'pending' ? [row.item] : []))}
+              ><Send size={15} aria-hidden="true" /></button>}
               {mode === 'pending' && (
                 <button
                   aria-label="Approve selected" className={button}
@@ -1019,7 +1041,7 @@ export default function TransactionList(props: TransactionListProps) {
                   const box = event.currentTarget.getBoundingClientRect();
                   if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) closeDelete();
                 }}><header className="ledger-allocation-heading"><h3 className="font-semibold">Delete expense</h3><button type="button" className="ledger-icon" aria-label="Close deletion" disabled={disabled} onClick={closeDelete}><X size={18} aria-hidden="true" /></button></header><p className="mt-3 text-sm">Delete this expense? Unsaved edits will be discarded. Audit history is retained.</p>{errors[item.expenseId] && <p role="alert" className="mt-3 text-sm text-red-700">{errors[item.expenseId]}</p>}<footer className="ledger-allocation-footer flex justify-end gap-2"><button className={button} disabled={disabled} onClick={closeDelete}>Cancel deletion</button><button className={`${button} text-red-700`} disabled={disabled} onClick={() => void execute(row, () => deleteRow(row))}>Confirm delete</button></footer></dialog>}
-                {historyId === item.expenseId && <ExpenseHistory key={item.expenseId} expenseId={item.expenseId} members={members} cards={cards} closingSnapshot={props.closingSnapshot} current={row.kind === 'approved' ? row.item : undefined} onClose={() => setHistoryId(null)} />}
+                {historyId === item.expenseId && <ExpenseHistory key={item.expenseId} expenseId={item.expenseId} members={members} cards={cards} closingSnapshot={props.closingSnapshot} current={row.kind === 'approved' ? row.item : undefined} client={client} onClose={() => setHistoryId(null)} />}
                       {breakdown && breakdown.item.expenseId === item.expenseId && (
         <dialog
           ref={breakdownDialog}
@@ -1174,7 +1196,7 @@ export default function TransactionList(props: TransactionListProps) {
           suggestions={suggestions}
           onClose={() => setSuggestionsOpen(false)}
           onApply={async (updates) => {
-            const result = await api.applyCategorySuggestions(
+            const result = await client.applyCategorySuggestions(
               updates.map((update) => ({
                 ...update,
                 revision: transactions.find((tx) => tx.id === update.id)!.revision,

@@ -9,6 +9,7 @@ import { queueRoutes } from './routes/queue';
 import { householdRoutes, memberRoutes, cardRoutes, reminderRoutes } from './routes/household';
 import { exportRoutes } from './routes/export';
 import { aiRoutes } from './routes/ai';
+import { groupRoutes } from './routes/groups';
 
 export interface Env {
   DB: D1Database;
@@ -37,8 +38,8 @@ app.use('*', async (c, next) => {
     [
       "default-src 'self'",
       "img-src 'self' data: blob:",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self'",
       "connect-src 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
@@ -62,15 +63,17 @@ app.get('/api/health', (c) => c.json({ ok: true }));
 
 app.on(['GET', 'POST'], '/api/auth/*', (c) => createAuth(c.env).handler(c.req.raw));
 
-// Every non-auth API route requires a resolved Scope. requireScope throws
+// Every non-auth API route requires a resolved Scope, except /api/groups,
+// which works across groups and reads the session itself. requireScope throws
 // HTTPException 401/403 before any handler runs — no route below this reaches
 // data without going through the ScopedRepository it returns.
 app.use('/api/*', async (c, next) => {
-  if (c.req.path.startsWith('/api/auth/') || c.req.path === '/api/health') return next();
+  if (c.req.path.startsWith('/api/auth/') || c.req.path === '/api/health' || c.req.path === '/api/groups') return next();
   await requireScope(c);
   return next();
 });
 
+app.route('/api/groups', groupRoutes);
 app.route('/api/bootstrap', bootstrap);
 app.route('/api/transactions', transactionRoutes);
 app.route('/api/cycles', cycleRoutes);
@@ -95,7 +98,8 @@ app.get('*', (c) => {
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
-    return c.json({ error: err.message }, err.status);
+    // A thrown HTTPException may carry its own body, such as a machine-readable reason.
+    return err.res ?? c.json({ error: err.message }, err.status);
   }
   console.error(err);
   return c.json({ error: 'Internal error' }, 500);

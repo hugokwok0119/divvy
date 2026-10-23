@@ -11,7 +11,7 @@ import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1';
 import { HTTPException } from 'hono/http-exception';
 import type { Context } from 'hono';
 import {
-  households, householdMembers, cards, cycles, transactions,
+  households, householdMembers, memberAccounts, cards, cycles, transactions,
   queueItems as queueTable, categoryPreferences, expenseHistory, reminderCompletions,
 } from '../db/schema';
 import { conditionalInsert, conditionalJsonInsert, eventExists, historyValues, historyStatement, snapshot, publicHistory, changedExpenseFields, type ExpenseActor } from './ledger-history';
@@ -21,12 +21,13 @@ type ApprovalBaseline = Pick<typeof transactions.$inferSelect,
 import { createAuth } from '../auth';
 import type { AllowlistEntry } from './onboarding';
 import type { Env } from '../index';
-import { computeShares, computeSettlement, type SplitType, type SplitRule, type Settlement } from '../../src/lib/settlement';
+import { computeShares, computeSettlement, splitRosterOf, type SplitType, type SplitRule, type Settlement } from '../../src/lib/settlement';
 import { canNormalizePercentages, customPercentagesError, sameSplitRule } from '../../src/lib/percentages';
 import { normalizeMerchantName } from '../../src/lib/category';
 import { isDuplicateMatch } from '../../src/lib/duplicates';
 import { canonicalCategory } from '../../src/constants';
 import { closedCycleCard } from '../../src/lib/money';
+import { todayIn } from '../../src/lib/reminders';
 import { checkAndIncrement, DAILY_AI_LIMIT } from './ratelimit';
 
 export interface OwnershipRefs {
@@ -55,6 +56,7 @@ export interface PublicMember {
   role: string;
   sortOrder: number;
   archivedAt: number | null;
+  sittingOutAt: number | null;
 }
 
 export interface QueueInput {
@@ -103,8 +105,8 @@ export class ScopedRepository {
    */
   async publicMembers(): Promise<PublicMember[]> {
     const rows = await this.members();
-    return rows.map(({ id, displayName, role, sortOrder, archivedAt }) => ({
-      id, displayName, role, sortOrder, archivedAt,
+    return rows.map(({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) => ({
+      id, displayName, role, sortOrder, archivedAt, sittingOutAt,
     }));
   }
 
@@ -118,6 +120,15 @@ export class ScopedRepository {
       ))
       .orderBy(asc(householdMembers.sortOrder));
     return rows.map((r) => r.id);
+  }
+
+  /** Who a new equal split spreads across. Members who sit out stay in roster() for custom and single splits. */
+  async splitRoster(): Promise<string[]> {
+    return splitRosterOf(await this.members());
+  }
+
+  private rosterFor(splitType: string) {
+    return splitType === 'equal' ? this.splitRoster() : this.roster();
   }
 
   async cards() {
@@ -299,7 +310,7 @@ export class ScopedRepository {
       }
     }
     return { roster: members.filter(member => member.archivedAt === null).map(member => member.id),
-      cardNames: new Map(ownedCards.map(card => [card.id, card.name])) };
+      splitRoster: splitRosterOf(members), cardNames: new Map(ownedCards.map(card => [card.id, card.name])) };
   }
 
   private assertCustomAllocation(splitType: string | null, splitRule: SplitRule | null | undefined,
@@ -313,7 +324,7 @@ export class ScopedRepository {
     return false;
   }
 
-  private async transactionValues(input: TxInput, owned?: { roster: string[]; cardNames: Map<string, string> },
+  private async transactionValues(input: TxInput, owned?: { roster: string[]; splitRoster: string[]; cardNames: Map<string, string> },
     current?: { splitType: string | null; splitRuleJson: string | null }) {
     const unchangedCustom = this.assertCustomAllocation(input.splitType, input.splitRule, current);
     if (!owned) await this.assertOwns({ payerId: input.payerId, cardId: input.cardId });
@@ -324,7 +335,8 @@ export class ScopedRepository {
       amountCents: input.amountCents, category: canonicalCategory(input.category), payerId: input.payerId,
       cardId: input.cardId, cardNameSnapshot: owned ? (input.cardId ? owned.cardNames.get(input.cardId)! : null) : await this.cardName(input.cardId), splitType: input.splitType,
       splitRuleJson: unchangedCustom ? current!.splitRuleJson : (input.splitRule ? JSON.stringify(input.splitRule) : null),
-      splitSharesJson: JSON.stringify(computeShares(input.amountCents, input.splitType, input.splitRule, owned?.roster ?? await this.roster())),
+      splitSharesJson: JSON.stringify(computeShares(input.amountCents, input.splitType, input.splitRule,
+        owned ? (input.splitType === 'equal' ? owned.splitRoster : owned.roster) : await this.rosterFor(input.splitType))),
       isStarred: input.isStarred ? 1 : 0, favoriteName: input.favoriteName ?? null,
       source: 'manual', sourceFileId: null, sourceFileName: null, reviewNote: null,
       createdAt: now, deletedAt: null };
@@ -401,7 +413,7 @@ export class ScopedRepository {
     const currentShares: Record<string, number> = JSON.parse(current.splitSharesJson);
     const frozen = this.frozenParticipants(current);
     const participants = explicitReSplit
-      ? [...new Set([...frozen, ...(await this.roster())])].sort()
+      ? [...new Set([...frozen, ...(await this.rosterFor(splitType))])].sort()
       : frozen;
     const shares = splitChanged
       ? computeShares(amountCents, splitType, splitRule, participants)
@@ -543,6 +555,7 @@ export class ScopedRepository {
       closedByMemberId: this.actor?.memberId ?? null, closedByName: this.actor?.displayName ?? null,
       closingSnapshotJson: JSON.stringify({ transactions: after.map(row => snapshot(row, 'approved')),
         members: await this.publicMembers() }),
+      name: sql`(select ${households.currentCycleName} from ${households} where ${households.id} = ${this.householdId})`,
     };
     const [saved] = await this.db.batch([
       history,
@@ -550,8 +563,22 @@ export class ScopedRepository {
       this.db.update(transactions).set({ cycleId, revision: sql`${transactions.revision} + 1`, updatedAt: now }).where(and(
         eq(transactions.householdId, this.householdId), selectedIds, gate,
       )),
+      this.db.update(households).set({ currentCycleName: null }).where(and(eq(households.id, this.householdId), gate)),
     ]);
     if (saved.meta.changes !== ordered.length) this.conflict();
+    return this.requireCycle(cycleId);
+  }
+
+  /** A null name returns the open cycle to its default label. */
+  async renameCurrentCycle(name: string | null) {
+    await this.db.update(households).set({ currentCycleName: name }).where(eq(households.id, this.householdId));
+    return { name };
+  }
+
+  async renameCycle(cycleId: string, name: string | null) {
+    const result = await this.db.update(cycles).set({ name })
+      .where(and(eq(cycles.id, cycleId), eq(cycles.householdId, this.householdId)));
+    if (result.meta.changes !== 1) throw new HTTPException(404, { message: 'Cycle not found' });
     return this.requireCycle(cycleId);
   }
 
@@ -745,7 +772,7 @@ export class ScopedRepository {
       splitSharesJson: unchangedAllocation && current.amountCents === baseline.amountCents ? baseline.splitSharesJson
         : JSON.stringify(computeShares(current.amountCents!, (current.splitType ?? baseline.splitType) as TxInput['splitType'],
           capturedRule ? JSON.parse(capturedRule) : null,
-          unchangedAllocation ? this.frozenParticipants(baseline) : await this.roster())),
+          unchangedAllocation ? this.frozenParticipants(baseline) : await this.rosterFor(current.splitType ?? baseline.splitType))),
       isStarred: 0, favoriteName: null };
     const guard = and(this.queueGuard(current), this.inputUnused(queueItemId, 'pending'),
       sql`not exists (select 1 from ${queueTable} where ${queueTable.id} = ${queueItemId})`,
@@ -1092,10 +1119,32 @@ export class ScopedRepository {
         message: 'Resolve this participant\'s queued items before archiving them',
       });
     }
-    const result = await this.db.update(householdMembers)
-      .set({ archivedAt: Date.now() })
+    const member = and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId));
+    const [row] = await this.db.select({ role: householdMembers.role }).from(householdMembers).where(member).limit(1);
+    if (!row) throw new HTTPException(404, { message: 'Member not found' });
+    if (row.role === 'owner') throw new HTTPException(409, { message: 'The household owner cannot be removed' });
+    if (splitRosterOf(await this.members()).every((other) => other === id)) {
+      throw new HTTPException(409, { message: 'At least one member must stay in' });
+    }
+    // Their cards go too, so pickers and statement reminders drop them; expenses keep the card name snapshot.
+    await this.db.batch([
+      this.db.update(householdMembers).set({ archivedAt: Date.now() }).where(member),
+      this.db.update(cards).set({ archived: 1 })
+        .where(and(eq(cards.memberId, id), eq(cards.householdId, this.householdId))),
+    ]);
+  }
+
+  /** Sitting out leaves a member out of new equal splits; existing shares never change. */
+  async setSittingOut(id: string, sittingOut: boolean): Promise<PublicMember> {
+    const members = await this.members();
+    if (!members.some((m) => m.id === id && m.archivedAt === null)) throw new HTTPException(404, { message: 'Member not found' });
+    // shortcut: concurrent toggles can leave nobody in; if more than one person can toggle, use a conditional UPDATE and decide 409 by re-reading the row, not meta.changes.
+    if (sittingOut && splitRosterOf(members).every((other) => other === id)) {
+      throw new HTTPException(409, { message: 'At least one member must stay in' });
+    }
+    await this.db.update(householdMembers).set({ sittingOutAt: sittingOut ? Date.now() : null })
       .where(and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId)));
-    if (result.meta.changes !== 1) throw new HTTPException(404, { message: 'Member not found' });
+    return (await this.publicMembers()).find((m) => m.id === id)!;
   }
 
   async upsertCard(input: {
@@ -1189,7 +1238,7 @@ export class ScopedRepository {
   }
 
   async updateHousehold(patch: {
-    name?: string; customCategories?: string[]; allowedEmails?: AllowlistEntry[];
+    name?: string; customCategories?: string[]; allowedEmails?: AllowlistEntry[]; rentReminder?: boolean;
   }) {
     const current = await this.household();
     await this.db.update(households).set({
@@ -1199,13 +1248,20 @@ export class ScopedRepository {
         : current.customCategoriesJson,
       allowedEmailsJson: patch.allowedEmails
         ? JSON.stringify(patch.allowedEmails) : current.allowedEmailsJson,
+      rentReminder: patch.rentReminder === undefined ? current.rentReminder : Number(patch.rentReminder),
     }).where(eq(households.id, this.householdId));
     return this.household();
   }
 
-  /** Returns false when the household is over its daily AI-usage allowance. */
+  /**
+   * Returns false when the household, or the app as a whole, is over its daily
+   * AI-usage allowance. Every group shares one free-tier Gemini key, so the
+   * `all` counter caps scans across groups on the Pacific day.
+   */
   async checkAiQuota(usageDate: string, limit = DAILY_AI_LIMIT): Promise<boolean> {
-    return checkAndIncrement(this.db, this.householdId, usageDate, limit);
+    // Group first, so a group past its own cap does not spend the shared allowance.
+    if (!await checkAndIncrement(this.db, this.householdId, usageDate, limit)) return false;
+    return checkAndIncrement(this.db, 'all', todayIn('America/Vancouver'), DAILY_AI_LIMIT);
   }
 
   /** Full dump for the Download my data button. Auth tables are never included. */
@@ -1240,25 +1296,63 @@ export interface Scope {
 }
 
 /** Matches resolveSignIn's normalization: trimmed, case-insensitive. */
-function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: string): boolean {
+export function isOwnerEmail(email: string, ownerEmail: string): boolean {
+  return email.trim().toLowerCase() === ownerEmail.trim().toLowerCase();
+}
+
+export function isEmailAllowed(email: string, allowedEmailsJson: string, ownerEmail: string): boolean {
+  if (isOwnerEmail(email, ownerEmail)) return true;
   const normalized = email.trim().toLowerCase();
-  if (normalized === ownerEmail.trim().toLowerCase()) return true;
   const allowlist: AllowlistEntry[] = JSON.parse(allowedEmailsJson);
   return allowlist.some((e) => e.email.trim().toLowerCase() === normalized);
 }
 
-export async function requireScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
+/** The group the client names for this request, if any. An empty value names none. */
+function requestedGroup(c: Context<{ Bindings: Env }>): string | undefined {
+  return c.req.header('x-divvy-group') || c.req.query('group') || undefined;
+}
+
+// The /api/* middleware and then the handler both call requireScope; one
+// resolution per request serves both.
+const scopes = new WeakMap<Request, Promise<Scope>>();
+
+export function requireScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
+  let scope = scopes.get(c.req.raw);
+  if (!scope) {
+    scope = resolveScope(c);
+    scopes.set(c.req.raw, scope);
+  }
+  return scope;
+}
+
+async function resolveScope(c: Context<{ Bindings: Env }>): Promise<Scope> {
   const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
   if (!session?.user) throw new HTTPException(401, { message: 'Not signed in' });
 
   const db = drizzle(c.env.DB);
+  const group = requestedGroup(c);
   const rows = await db
-    .select().from(householdMembers)
-    .where(eq(householdMembers.userId, session.user.id)).limit(1);
+    .select(getTableColumns(householdMembers)).from(memberAccounts)
+    .innerJoin(householdMembers, and(
+      eq(householdMembers.id, memberAccounts.memberId), eq(householdMembers.householdId, memberAccounts.householdId),
+    ))
+    .where(and(
+      eq(memberAccounts.userId, session.user.id),
+      group === undefined ? undefined : eq(memberAccounts.householdId, group),
+    ))
+    // Active links first: two rows that are both active mean the caller must choose.
+    .orderBy(sql`${householdMembers.archivedAt} is not null`)
+    .limit(2);
 
   if (rows.length === 0) throw new HTTPException(403, { message: 'No household membership' });
+  if (rows.filter((r) => r.archivedAt === null).length > 1) {
+    throw new HTTPException(400, {
+      res: Response.json({ error: 'Choose a group', reason: 'group_required' }, { status: 400 }),
+    });
+  }
 
   const member = rows[0];
+  if (member.archivedAt !== null) throw new HTTPException(403, { message: 'Removed from this household' });
   const repo = new ScopedRepository(db, member.householdId, { memberId: member.id, displayName: member.displayName });
 
   // Every later sign-in (and every later request) must still match the

@@ -5,6 +5,10 @@ import { distinctColors } from '../src/components/ledger';
 const card = (id: string, name: string, statementDay: number | null, archived = 0) => ({ id, name, statementDay, archived });
 
 describe('monthReminders', () => {
+  it('leaves out rent when the group turns it off', () => {
+    expect(monthReminders(2026, 10, [], false).map((r) => r.id)).toEqual([]);
+  });
+
   it('gives each card on a shared day its own reminder, plus month-end rent', () => {
     const reminders = monthReminders(2026, 10, [card('c1', 'Amex', 15), card('c2', 'Visa', 15)]);
     expect(reminders).toEqual([

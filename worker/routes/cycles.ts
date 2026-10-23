@@ -1,7 +1,7 @@
 // Data access only through scope.repo.
 import { Hono } from 'hono';
 import { requireScope, requireOwner } from '../lib/scope';
-import { validateCloseCycle } from '../lib/validate';
+import { validateCloseCycle, validateCycleName } from '../lib/validate';
 import type { Env } from '../index';
 
 export const cycleRoutes = new Hono<{ Bindings: Env }>();
@@ -31,6 +31,21 @@ cycleRoutes.post('/close', async (c) => {
   const { value, fields } = validateCloseCycle(await c.req.json().catch(() => null));
   if (!value) return c.json({ error: 'Invalid cycle close request', fields }, 400);
   return c.json(await repo.closeCycle(value.cycleId, value.transactionIds, value.revisions), 201);
+});
+
+// Any member may rename, like closing. Registered before '/:id' so "current" is never a cycle id.
+cycleRoutes.patch('/current', async (c) => {
+  const { repo } = await requireScope(c);
+  const { value, fields } = validateCycleName(await c.req.json().catch(() => null));
+  if (!value) return c.json({ error: 'Invalid cycle name', fields }, 400);
+  return c.json(await repo.renameCurrentCycle(value.name));
+});
+
+cycleRoutes.patch('/:id', async (c) => {
+  const { repo } = await requireScope(c);
+  const { value, fields } = validateCycleName(await c.req.json().catch(() => null));
+  if (!value) return c.json({ error: 'Invalid cycle name', fields }, 400);
+  return c.json(await repo.renameCycle(c.req.param('id'), value.name));
 });
 
 cycleRoutes.post('/:id/settle', async (c) => {

@@ -9,6 +9,8 @@ import workerApp, { type Env } from '../../worker/index';
 
 describe('unauthenticated access', () => {
   const protectedRoutes: Array<[string, string]> = [
+    ['GET', '/api/groups'],
+    ['POST', '/api/groups'],
     ['GET', '/api/bootstrap'],
     ['GET', '/api/transactions'],
     ['POST', '/api/transactions'],
@@ -85,8 +87,8 @@ describe('security headers', () => {
     const csp = res.headers.get('content-security-policy');
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain('https://fonts.googleapis.com');
-    expect(csp).toContain('https://fonts.gstatic.com');
+    expect(csp).toContain("font-src 'self';");
+    expect(csp).not.toContain('fonts.googleapis.com');
   };
 
   it('applies to an API route', async () => {

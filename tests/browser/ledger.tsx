@@ -68,6 +68,8 @@ const initial: Bootstrap = {
     currencyCode: 'CAD',
     timezone: 'America/Vancouver',
     customCategories: [],
+    currentCycleName: null,
+    rentReminder: true,
   },
   members: [
     {
@@ -76,6 +78,7 @@ const initial: Bootstrap = {
       role: 'owner',
       sortOrder: 0,
       archivedAt: null,
+      sittingOutAt: null,
     },
     {
       id: 'm2',
@@ -83,6 +86,7 @@ const initial: Bootstrap = {
       role: 'member',
       sortOrder: 1,
       archivedAt: null,
+      sittingOutAt: null,
     },
   ],
   cards: [{ id: 'c1', memberId: 'm1', name: 'Visa', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null }],
@@ -111,7 +115,7 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
     stored.transactions[0].splitType = 'custom';
     stored.transactions[0].splitRuleJson = JSON.stringify({ percentages: options.allocation });
   }
-  if (options.third) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null });
+  if (options.third) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null, sittingOutAt: null });
   if (options.archived) stored.members[1].archivedAt = 1;
   if (options.member) stored.me = { memberId: 'm2', role: 'member' };
   const closings: CloseCycleInput[] = [];
@@ -135,6 +139,8 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
   const saves: Array<{ id: string; patch: any; revision: number }> = [],
     approvals: QueueItem[] = [],
     moves: any[] = [];
+  api.groups = async () => ({ groups: [{ id: 'h', name: 'Ledger test', role: 'owner', memberId: 'm1', peopleCount: 2, pendingCount: 0 }], canCreate: false });
+  api.reminders = async () => [];
   api.bootstrap = async () => structuredClone(stored);
   api.updateQueueItem = async (id, patch, revision) => {
     saves.push({ id, patch, revision });
@@ -235,6 +241,7 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
     closingSnapshotJson: options.legacy ? null : JSON.stringify({ transactions: [{ ...approved, state: 'approved' }], members: initial.members }),
     closedAt: 0,
     settledAt: null,
+    name: null,
   };
   api.cycles = async () => [{ ...fixtureCycle, settlement: { balances: {}, transfers: [] }, groups: [] }];
   api.cycle = async () => ({

@@ -20,8 +20,8 @@ const row: QueueItem = {
 };
 const initial: Bootstrap = {
   me: { memberId: 'm1', role: 'owner' },
-  household: { id: 'h1', name: 'Test household', currencyCode: 'CAD', timezone: 'America/Vancouver', customCategories: [] },
-  members: [{ id: 'm1', displayName: 'Test user', role: 'owner', sortOrder: 0, archivedAt: null }],
+  household: { id: 'h1', name: 'Test household', currencyCode: 'CAD', timezone: 'America/Vancouver', customCategories: [], currentCycleName: null, rentReminder: true },
+  members: [{ id: 'm1', displayName: 'Test user', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null }],
   cards: [], transactions: [], queue: [row, { ...row, id: 'q2', expenseId: 'expense-test-2', store: 'Lyft' }], cycles: [], categoryPreferences: {},
 };
 const assert = (condition: unknown, message: string) => { if (!condition) throw new Error(message); };
@@ -53,6 +53,8 @@ async function mount() {
     confirmations.push({ id, date: (input as { date: string }).date });
     return {} as Awaited<ReturnType<typeof api.confirmQueueItem>>;
   };
+  api.groups = async () => ({ groups: [{ id: 'h1', name: 'Test household', role: 'owner', memberId: 'm1', peopleCount: 1, pendingCount: 0 }], canCreate: false });
+  api.reminders = async () => [];
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -132,4 +134,35 @@ for (const error of [new Error('Bootstrap failed'), new ApiError(401, 'Signed ou
     assert(!view.host.textContent?.includes('Bootstrap failed'), 'Successful refresh must clear the prior error');
   });
 }
+await check('group_required on refresh shows the choose screen with the switcher open', async (view) => {
+  view.focus(); await waitFor(() => view.requests.length === 1, 'Focus refresh did not start');
+  view.requests[0].reject(new ApiError(400, 'Choose a group', 'group_required'));
+  await waitFor(() => !!view.host.querySelector('[role="menu"]'), 'Switcher did not open');
+  assert(view.host.querySelector('h1')?.textContent === 'Choose a group', 'Choose screen must replace the ledger');
+  assert(view.host.querySelector('#group-switcher')?.getAttribute('aria-expanded') === 'true', 'Switcher button must report open');
+  assert(view.host.querySelector('[role="menuitemradio"]')?.textContent?.includes('Test household'), 'Menu must list the groups');
+});
+await check('a failed group reload keeps the app and the cached list', async (view) => {
+  await waitFor(() => !!view.host.querySelector('#group-switcher'), 'Header switcher missing');
+  api.groups = () => Promise.reject(new Error('Groups offline'));
+  flushSync(() => view.host.querySelector<HTMLButtonElement>('#group-switcher')!.click());
+  await tick(); await tick();
+  assert(!view.host.textContent?.includes('Groups offline'), 'Failed reload must not show the error screen');
+  assert(view.dates().length === 2, 'Ledger must stay mounted');
+  assert(view.host.querySelector('[role="menuitemradio"]')?.textContent?.includes('Test household'), 'Menu must keep the cached list');
+});
+await check('picking a group from Change focuses the header switcher after the remount', async (view) => {
+  const groups = await api.groups();
+  api.groups = async () => ({ ...groups, groups: [...groups.groups, { ...groups.groups[0], id: 'h2', name: 'Trip' }] });
+  const change = [...view.host.querySelectorAll('button')].find((button) => button.textContent === 'Change')!;
+  change.focus();
+  flushSync(() => change.click());
+  await waitFor(() => !!view.host.querySelector('[role="menuitemradio"]:nth-of-type(2)'), 'Second group not listed');
+  flushSync(() => view.host.querySelector<HTMLButtonElement>('[role="menuitemradio"]:nth-of-type(2)')!.click());
+  await waitFor(() => view.requests.length === 1, 'Switch did not refresh');
+  view.requests[0].snapshot.household.id = 'h2';
+  view.requests[0].resolve();
+  await waitFor(() => view.dates().length === 2 && !view.host.contains(change), 'Ledger did not remount for the new group');
+  assert(document.activeElement === view.host.querySelector('#group-switcher'), `Focus went to ${document.activeElement?.tagName}`);
+});
 document.getElementById('result')!.textContent = `${results.filter((result) => result.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;

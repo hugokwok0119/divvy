@@ -6,6 +6,8 @@ import {
   summarizeCycleTransactions,
   formatDateSpan,
   cycleGroupLabel,
+  cycleGroupsOf,
+  cycleName,
 } from '../src/lib/money';
 import type { Card, CycleGroup, Member } from '../src/types';
 
@@ -117,8 +119,8 @@ describe('formatDateSpan', () => {
 describe('cycleGroupLabel', () => {
   const CLOSED = 2000;
   const members: Member[] = [
-    { id: 'm1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null },
-    { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: 1500 },
+    { id: 'm1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null },
+    { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: 1500, sittingOutAt: null },
   ];
   const card = (over: Partial<Card>): Card => ({
     id: 'c1', memberId: 'm1', name: 'Visa Infinite', archived: 0, sortOrder: 0, statementDay: 20,
@@ -166,5 +168,33 @@ describe('cycleGroupLabel', () => {
     const [labelA, labelB] = cycles.map((cy) => cycleGroupLabel(group({}), cy.closedAt, members, [card({})]).label);
     expect(labelA).toBe(labelB);
     expect(disambiguatedClosedDates(cycles)).toEqual({ a: '2024-05-14 (#1)', b: '2024-05-14 (#2)' });
+  });
+});
+
+describe('cycleName', () => {
+  const members: Member[] = [
+    { id: 'm1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null },
+    { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null, sittingOutAt: null },
+  ];
+  const tx = (payerId: string, cardId: string | null, date: string) => ({ payerId, cardId, cardNameSnapshot: cardId && 'Visa', date });
+
+  it('groups open expenses like the server cycle list: most expenses, then earliest, then payer and card', () => {
+    expect(cycleGroupsOf([
+      tx('m2', 'c2', '2026-10-02'), tx('m1', 'c1', '2026-10-05'), tx('m1', 'c1', '2026-09-20'), tx('m1', null, '2026-09-01'),
+    ])).toEqual([
+      { payerId: 'm1', cardId: 'c1', cardNameSnapshot: 'Visa', dateStart: '2026-09-20', dateEnd: '2026-10-05', count: 2 },
+      { payerId: 'm1', cardId: null, cardNameSnapshot: null, dateStart: '2026-09-01', dateEnd: '2026-09-01', count: 1 },
+      { payerId: 'm2', cardId: 'c2', cardNameSnapshot: 'Visa', dateStart: '2026-10-02', dateEnd: '2026-10-02', count: 1 },
+    ]);
+  });
+
+  it('defaults to the first group label History already shows, and No expenses when empty', () => {
+    const groups = cycleGroupsOf([tx('m1', 'c1', '2026-09-16'), tx('m1', 'c1', '2026-10-15')]);
+    expect(cycleName(null, groups, 2000, members, [])).toBe('Hugo · Visa · expenses Sep 16–Oct 15, 2026');
+    expect(cycleName(null, [], 2000, members, [])).toBe('No expenses');
+  });
+
+  it('prefers a saved name', () => {
+    expect(cycleName('Japan trip', cycleGroupsOf([tx('m1', 'c1', '2026-09-16')]), 2000, members, [])).toBe('Japan trip');
   });
 });

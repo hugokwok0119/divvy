@@ -1,4 +1,4 @@
-import type { Bootstrap, Transaction, QueueItem, Cycle, CycleGroup, Settlement, ExpenseHistoryEvent, CloseCycleInput, ReminderCompletion } from '../types';
+import type { GroupSummary, Bootstrap, Member, Transaction, QueueItem, Cycle, CycleGroup, Settlement, ExpenseHistoryEvent, CloseCycleInput, ReminderCompletion } from '../types';
 import { CATEGORIES, canonicalCategory, categoryOptions } from '../constants';
 
 export class ApiError extends Error {
@@ -9,10 +9,31 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+const GROUP_KEY = 'divvy.groupId';
+
+// Read once: another tab may switch groups, and this tab keeps its own.
+let groupId: string | null = (() => {
+  try { return localStorage.getItem(GROUP_KEY); } catch { return null; }
+})();
+
+export const currentGroupId = (): string | null => groupId;
+
+export function setCurrentGroup(id: string | null): void {
+  groupId = id;
+  try {
+    if (id === null) localStorage.removeItem(GROUP_KEY);
+    else localStorage.setItem(GROUP_KEY, id);
+  } catch { /* storage unavailable: the in-memory choice still applies */ }
+}
+
+/** Never sends an empty header: the server reads that as "no group named". */
+export const groupHeaders = (id = currentGroupId()): Record<string, string> =>
+  id ? { 'x-divvy-group': id } : {};
+
+async function request<T>(path: string, init: RequestInit | undefined, groupHeader: Record<string, string>): Promise<T> {
   const res = await fetch(path, {
     ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { 'content-type': 'application/json', ...groupHeader, ...(init?.headers ?? {}) },
   });
 
   if (res.status === 401) throw new ApiError(401, 'Signed out');
@@ -45,142 +66,167 @@ function canonicalBootstrap(data: Bootstrap): Bootstrap {
   };
 }
 
-export const api = {
-  bootstrap: () => request<Bootstrap>('/api/bootstrap').then(canonicalBootstrap),
+function makeApi(headers: () => Record<string, string>) {
+  const req = <T>(path: string, init?: RequestInit) => request<T>(path, init, headers());
+  return {
+    groups: () => req<{ groups: GroupSummary[]; canCreate: boolean }>('/api/groups'),
 
-  archivedTransactions: () =>
-    request<Transaction[]>('/api/transactions?status=archived')
-      .then((rows) => rows.map(canonicalTransaction)),
+    createGroup: (input: { name: string; currencyCode: string; timezone: string }) =>
+      req<GroupSummary>('/api/groups', { method: 'POST', body: JSON.stringify(input) }),
 
-  createTransaction: (input: unknown) =>
-    request<Transaction>('/api/transactions', { method: 'POST', body: JSON.stringify(input) }),
+    bootstrap: () => req<Bootstrap>('/api/bootstrap').then(canonicalBootstrap),
 
-  createTransactions: (transactions: unknown[]) =>
-    request<Transaction[]>('/api/transactions/bulk', {
-      method: 'POST', body: JSON.stringify({ transactions }),
-    }),
+    archivedTransactions: () =>
+      req<Transaction[]>('/api/transactions?status=archived')
+        .then((rows) => rows.map(canonicalTransaction)),
 
-  updateTransaction: (id: string, patch: unknown, revision: number) =>
-    request<Transaction>(`/api/transactions/${id}`, {
-      method: 'PATCH', body: JSON.stringify({ ...(patch as object), revision }),
-    }),
+    createTransaction: (input: unknown) =>
+      req<Transaction>('/api/transactions', { method: 'POST', body: JSON.stringify(input) }),
 
-  splitTransaction: (id: string, transactionId: string, amountCents: number, revision: number) =>
-    request<{ original: Transaction; separated: Transaction }>(`/api/transactions/${id}/split`, {
-      method: 'POST', body: JSON.stringify({ transactionId, amountCents, revision }),
-    }),
+    createTransactions: (transactions: unknown[]) =>
+      req<Transaction[]>('/api/transactions/bulk', {
+        method: 'POST', body: JSON.stringify({ transactions }),
+      }),
 
-  splitQueueItem: (id: string, queueItemId: string, amountCents: number, revision: number) =>
-    request<{ original: QueueItem; separated: QueueItem }>(`/api/queue/${encodeURIComponent(id)}/split`, {
-      method: 'POST', body: JSON.stringify({ queueItemId, amountCents, revision }),
-    }),
+    updateTransaction: (id: string, patch: unknown, revision: number) =>
+      req<Transaction>(`/api/transactions/${id}`, {
+        method: 'PATCH', body: JSON.stringify({ ...(patch as object), revision }),
+      }),
 
-  deleteTransaction: (id: string, revision: number) =>
-    request<void>(`/api/transactions/${id}`, { method: 'DELETE', body: JSON.stringify({ revision }) }),
+    splitTransaction: (id: string, transactionId: string, amountCents: number, revision: number) =>
+      req<{ original: Transaction; separated: Transaction }>(`/api/transactions/${id}/split`, {
+        method: 'POST', body: JSON.stringify({ transactionId, amountCents, revision }),
+      }),
 
-  expenseHistory: (expenseId: string) => request<ExpenseHistoryEvent[]>(`/api/transactions/history/${encodeURIComponent(expenseId)}`),
+    splitQueueItem: (id: string, queueItemId: string, amountCents: number, revision: number) =>
+      req<{ original: QueueItem; separated: QueueItem }>(`/api/queue/${encodeURIComponent(id)}/split`, {
+        method: 'POST', body: JSON.stringify({ queueItemId, amountCents, revision }),
+      }),
 
-  returnToPending: (id: string, revision: number, note?: string) =>
-    request<QueueItem>(`/api/transactions/${id}/pending`, { method: 'POST', body: JSON.stringify({ revision, note }) }),
+    deleteTransaction: (id: string, revision: number) =>
+      req<void>(`/api/transactions/${id}`, { method: 'DELETE', body: JSON.stringify({ revision }) }),
 
-  /** Accept flow for the "Suggest Categories" workflow (Phase 6). Atomic on the server. */
-  applyCategorySuggestions: (updates: Array<{ id: string; category: string; revision: number }>) =>
-    request<{ applied: string[]; skipped: string[] }>('/api/transactions/apply-category-suggestions', {
-      method: 'POST', body: JSON.stringify({ updates }),
-    }),
+    expenseHistory: (expenseId: string) => req<ExpenseHistoryEvent[]>(`/api/transactions/history/${encodeURIComponent(expenseId)}`),
 
-  createQueueItem: (input: unknown) =>
-    request<QueueItem>('/api/queue', { method: 'POST', body: JSON.stringify(input) }),
+    returnToPending: (id: string, revision: number, note?: string) =>
+      req<QueueItem>(`/api/transactions/${id}/pending`, { method: 'POST', body: JSON.stringify({ revision, note }) }),
 
-  createQueueItems: (items: unknown[]) =>
-    request<{
-      created: QueueItem[];
-      summary: { inserted: number; duplicate: number; rejected: number };
-    }>('/api/queue/bulk', { method: 'POST', body: JSON.stringify({ items }) }),
+    /** Accept flow for the "Suggest Categories" workflow (Phase 6). Atomic on the server. */
+    applyCategorySuggestions: (updates: Array<{ id: string; category: string; revision: number }>) =>
+      req<{ applied: string[]; skipped: string[] }>('/api/transactions/apply-category-suggestions', {
+        method: 'POST', body: JSON.stringify({ updates }),
+      }),
 
-  updateQueueItem: (id: string, patch: unknown, revision: number) =>
-    request<QueueItem>(`/api/queue/${id}`, { method: 'PATCH', body: JSON.stringify({ ...(patch as object), revision }) }),
+    createQueueItem: (input: unknown) =>
+      req<QueueItem>('/api/queue', { method: 'POST', body: JSON.stringify(input) }),
 
-  deleteQueueItem: (id: string, revision: number) =>
-    request<void>(`/api/queue/${id}`, { method: 'DELETE', body: JSON.stringify({ revision }) }),
+    createQueueItems: (items: unknown[]) =>
+      req<{
+        created: QueueItem[];
+        summary: { inserted: number; duplicate: number; rejected: number };
+      }>('/api/queue/bulk', { method: 'POST', body: JSON.stringify({ items }) }),
 
-  deleteQueueItems: (ids: string[], revisions: Record<string, number>) =>
-    request<{ deletedIds: string[] }>('/api/queue/delete-bulk', {
-      method: 'POST', body: JSON.stringify({ ids, revisions }),
-    }).then((result) => result.deletedIds),
+    updateQueueItem: (id: string, patch: unknown, revision: number) =>
+      req<QueueItem>(`/api/queue/${id}`, { method: 'PATCH', body: JSON.stringify({ ...(patch as object), revision }) }),
 
-  confirmQueueItem: (id: string, transactionId: string, transaction: unknown, revision: number) =>
-    request<Transaction>(`/api/queue/${id}/confirm`, {
-      method: 'POST', body: JSON.stringify({ transactionId, transaction, revision }),
-    }),
+    deleteQueueItem: (id: string, revision: number) =>
+      req<void>(`/api/queue/${id}`, { method: 'DELETE', body: JSON.stringify({ revision }) }),
 
-  cycles: () => request<Array<Cycle & { settlement: Settlement; groups: CycleGroup[] }>>('/api/cycles'),
+    deleteQueueItems: (ids: string[], revisions: Record<string, number>) =>
+      req<{ deletedIds: string[] }>('/api/queue/delete-bulk', {
+        method: 'POST', body: JSON.stringify({ ids, revisions }),
+      }).then((result) => result.deletedIds),
 
-  cycle: (id: string) =>
-    request<{ cycle: Cycle; transactions: Transaction[]; settlement: Settlement }>(
-      `/api/cycles/${id}`).then((result) => ({
-        ...result, transactions: result.transactions.map(canonicalTransaction),
-      })),
+    confirmQueueItem: (id: string, transactionId: string, transaction: unknown, revision: number) =>
+      req<Transaction>(`/api/queue/${id}/confirm`, {
+        method: 'POST', body: JSON.stringify({ transactionId, transaction, revision }),
+      }),
 
-  closeCycle: (input: CloseCycleInput) =>
-    request<Cycle>('/api/cycles/close', {
-      method: 'POST', body: JSON.stringify(input),
-    }),
+    cycles: () => req<Array<Cycle & { settlement: Settlement; groups: CycleGroup[] }>>('/api/cycles'),
 
-  settleCycle: (id: string) =>
-    request<Cycle>(`/api/cycles/${id}/settle`, { method: 'POST' }),
+    cycle: (id: string) =>
+      req<{ cycle: Cycle; transactions: Transaction[]; settlement: Settlement }>(
+        `/api/cycles/${id}`).then((result) => ({
+          ...result, transactions: result.transactions.map(canonicalTransaction),
+        })),
 
-  unsettleCycle: (id: string) =>
-    request<Cycle>(`/api/cycles/${id}/unsettle`, { method: 'POST' }),
+    closeCycle: (input: CloseCycleInput) =>
+      req<Cycle>('/api/cycles/close', {
+        method: 'POST', body: JSON.stringify(input),
+      }),
 
-  updateHousehold: (patch: unknown) =>
-    request<unknown>('/api/household', { method: 'PATCH', body: JSON.stringify(patch) }),
+    renameCycle: (id: string, name: string | null) =>
+      req<unknown>(`/api/cycles/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
 
-  upsertMember: (input: unknown) =>
-    request<unknown>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
+    settleCycle: (id: string) =>
+      req<Cycle>(`/api/cycles/${id}/settle`, { method: 'POST' }),
 
-  upsertCard: (input: unknown) =>
-    request<unknown>('/api/cards', { method: 'POST', body: JSON.stringify(input) }),
+    unsettleCycle: (id: string) =>
+      req<Cycle>(`/api/cycles/${id}/unsettle`, { method: 'POST' }),
 
-  deleteCard: (id: string) =>
-    request<void>(`/api/cards/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    updateHousehold: (patch: unknown) =>
+      req<unknown>('/api/household', { method: 'PATCH', body: JSON.stringify(patch) }),
 
-  reorderCards: (ids: string[]) =>
-    request<unknown>('/api/cards/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+    upsertMember: (input: unknown) =>
+      req<unknown>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
 
-  reorderMembers: (ids: string[]) =>
-    request<unknown>('/api/members/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+    setSittingOut: (id: string, sittingOut: boolean) =>
+      req<Member>(`/api/members/${encodeURIComponent(id)}/sitting-out`, { method: 'PUT', body: JSON.stringify({ sittingOut }) }),
 
-  previewCardHistory: (input: unknown) =>
-    request<{ cycles: number; expenses: number }>('/api/cards?preview=1', { method: 'POST', body: JSON.stringify(input) }),
+    upsertCard: (input: unknown) =>
+      req<unknown>('/api/cards', { method: 'POST', body: JSON.stringify(input) }),
 
-  reminders: (month: string) => request<ReminderCompletion[]>(`/api/reminders?month=${month}`),
+    deleteCard: (id: string) =>
+      req<void>(`/api/cards/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-  setReminder: (month: string, reminderId: string, done: boolean) =>
-    request<ReminderCompletion[]>('/api/reminders', { method: 'PUT', body: JSON.stringify({ month, reminderId, done }) }),
+    reorderCards: (ids: string[]) =>
+      req<unknown>('/api/cards/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
 
-  parseReceipt: async (file: File) => {
-    const res = await fetch('/api/ai/parse-receipt', { method: 'POST', body: file });
-    if (!res.ok) {
-      const body = await res.json<{ error?: string }>().catch((): { error?: string } => ({}));
-      throw new ApiError(res.status, body.error ?? 'Could not read that receipt');
-    }
-    return res.json<{
-      date: string | null;
-      store: string | null;
-      amountCents: number | null;
-      category: string | null;
-      statementTotalCents?: number | null;
-      itemsTotalCents?: number;
-      reconciled?: boolean;
-      transactions?: Array<{
+    deleteMember: (id: string) =>
+      req<void>(`/api/members/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    reorderMembers: (ids: string[]) =>
+      req<unknown>('/api/members/order', { method: 'PUT', body: JSON.stringify({ ids }) }),
+
+    previewCardHistory: (input: unknown) =>
+      req<{ cycles: number; expenses: number }>('/api/cards?preview=1', { method: 'POST', body: JSON.stringify(input) }),
+
+    reminders: (month: string) => req<ReminderCompletion[]>(`/api/reminders?month=${month}`),
+
+    setReminder: (month: string, reminderId: string, done: boolean) =>
+      req<ReminderCompletion[]>('/api/reminders', { method: 'PUT', body: JSON.stringify({ month, reminderId, done }) }),
+
+    parseReceipt: async (file: File) => {
+      const res = await fetch('/api/ai/parse-receipt', { method: 'POST', body: file, headers: headers() });
+      if (!res.ok) {
+        const body = await res.json<{ error?: string }>().catch((): { error?: string } => ({}));
+        throw new ApiError(res.status, body.error ?? 'Could not read that receipt');
+      }
+      return res.json<{
         date: string | null;
         store: string | null;
         amountCents: number | null;
         category: string | null;
-      }>;
-    }>();
-  },
+        statementTotalCents?: number | null;
+        itemsTotalCents?: number;
+        reconciled?: boolean;
+        transactions?: Array<{
+          date: string | null;
+          store: string | null;
+          amountCents: number | null;
+          category: string | null;
+        }>;
+      }>();
+    },
 
-  exportUrl: '/api/export',
-};
+    exportUrl: () => {
+      const id = headers()['x-divvy-group'];
+      return id ? `/api/export?group=${encodeURIComponent(id)}` : '/api/export';
+    },
+  };
+}
+
+export const api = makeApi(() => groupHeaders());
+
+/** A client pinned to one group, whatever the current selection becomes. */
+export const apiFor = (groupId: string) => makeApi(() => groupHeaders(groupId));

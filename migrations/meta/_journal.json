@@ -57,6 +57,20 @@
       "when": 1792111894937,
       "tag": "0008_history_lineage_index",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1792639509644,
+      "tag": "0009_cycle_names",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792655616306,
+      "tag": "0010_group_accounts",
+      "breakpoints": true
     }
   ]
 }

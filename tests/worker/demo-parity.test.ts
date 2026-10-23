@@ -19,8 +19,8 @@ const fixture = {
   household: { id: 'h1', name: 'Ours', currencyCode: 'CAD', timezone: 'America/Vancouver',
     customCategoriesJson: '[]', allowedEmailsJson: '[]', createdAt: 0 },
   members: [
-    { id: 'm1', householdId: 'h1', userId: 'u1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null, createdAt: 0 },
-    { id: 'm2', householdId: 'h1', userId: null, displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null, createdAt: 0 },
+    { id: 'm1', householdId: 'h1', userId: 'u1', displayName: 'Hugo', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null, createdAt: 0 },
+    { id: 'm2', householdId: 'h1', userId: null, displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null, sittingOutAt: null, createdAt: 0 },
   ],
   cards: [
     { id: 'c1', householdId: 'h1', memberId: 'm1', name: 'Card One', archived: 0, sortOrder: 0, statementDay: null,
@@ -44,9 +44,9 @@ function demoServer() {
   const h = fixture.household;
   const bootstrap: Bootstrap = {
     me: { memberId: 'm1', role: 'owner' },
-    household: { id: h.id, name: h.name, currencyCode: h.currencyCode, timezone: h.timezone, customCategories: [] },
-    members: fixture.members.map(({ id, displayName, role, sortOrder, archivedAt }) =>
-      ({ id, displayName, role, sortOrder, archivedAt }) as Member),
+    household: { id: h.id, name: h.name, currencyCode: h.currencyCode, timezone: h.timezone, customCategories: [], currentCycleName: null, rentReminder: true },
+    members: fixture.members.map(({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) =>
+      ({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) as Member),
     cards: fixture.cards.map((card) => ({ ...card }) as Card),
     transactions: fixture.transactions.map((tx) => ({ ...tx }) as Transaction),
     queue: [], cycles: [], categoryPreferences: {},

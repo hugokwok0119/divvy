@@ -8,8 +8,8 @@ import '../../src/index.css';
 
 if (new URLSearchParams(location.search).has('zoom')) document.documentElement.style.zoom = '2';
 const members: Member[] = [
-  { id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null },
-  { id: 'm2', displayName: 'Sam with a long household name', role: 'member', sortOrder: 1, archivedAt: null },
+  { id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null },
+  { id: 'm2', displayName: 'Sam with a long household name', role: 'member', sortOrder: 1, archivedAt: null, sittingOutAt: null },
 ];
 const transaction: Transaction = {
   id: 't1', expenseId: 'e1', revision: 1, hasBeenApproved: true, lastEditedAt: null, parentExpenseId: null,

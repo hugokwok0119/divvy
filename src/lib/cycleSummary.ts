@@ -3,8 +3,8 @@ import { closedDateOf } from './money';
 import { memberColorAt } from './memberColors';
 
 export interface SummaryPerson { id: string; name: string; color: string; paidCents: number; shareCents: number; netCents: number }
-export interface SummaryItem { id: string; date: string; name: string; payerName: string; amountCents: number; shares: Record<string, number>; extraCent: string[] }
-export interface SummaryTransfer { fromName: string; toName: string; amountCents: number }
+export interface SummaryItem { id: string; date: string; name: string; payerName: string; payerColor: string; amountCents: number; shares: Record<string, number>; extraCent: string[] }
+export interface SummaryTransfer { fromName: string; fromColor: string; toName: string; amountCents: number }
 export interface CycleSummary {
   householdName: string; status: 'closed' | 'settled'; closedDate: string;
   dateStart: string | null; dateEnd: string | null; totalCents: number;
@@ -40,6 +40,10 @@ export function buildCycleSummary(input: {
     return i < 0 ? members.length : i;
   };
   const nameOf = (id: string) => members.find((m) => m.id === id)?.displayName ?? 'Unknown';
+  const colorOf = (id: string) => {
+    const i = members.findIndex((m) => m.id === id);
+    return i < 0 ? UNKNOWN_COLOR : memberColorAt(i);
+  };
 
   const paid: Record<string, number> = {};
   const share: Record<string, number> = {};
@@ -51,26 +55,22 @@ export function buildCycleSummary(input: {
       paid[tx.payerId] = (paid[tx.payerId] ?? 0) + tx.amountCents;
       for (const [id, cents] of Object.entries(shares)) share[id] = (share[id] ?? 0) + cents;
       return {
-        id: tx.id, date: tx.date, name: tx.favoriteName ?? tx.store, payerName: nameOf(tx.payerId),
-        amountCents: tx.amountCents, shares, extraCent: extraCentMembers(tx),
+        id: tx.id, date: tx.date, name: tx.favoriteName ?? tx.store,
+        payerName: nameOf(tx.payerId), payerColor: colorOf(tx.payerId), amountCents: tx.amountCents, shares, extraCent: extraCentMembers(tx),
       };
     });
 
   const people = [...new Set([...Object.keys(paid), ...Object.keys(share)])]
     .sort((a, b) => index(a) - index(b))
     .map((id) => {
-      const i = members.findIndex((m) => m.id === id);
       const paidCents = paid[id] ?? 0;
       const shareCents = share[id] ?? 0;
-      return {
-        id, name: nameOf(id), color: i < 0 ? UNKNOWN_COLOR : memberColorAt(i),
-        paidCents, shareCents, netCents: paidCents - shareCents,
-      };
+      return { id, name: nameOf(id), color: colorOf(id), paidCents, shareCents, netCents: paidCents - shareCents };
     });
 
   const transfers = [...input.settlement.transfers]
     .sort((a, b) => index(a.from) - index(b.from) || index(a.to) - index(b.to))
-    .map((t) => ({ fromName: nameOf(t.from), toName: nameOf(t.to), amountCents: t.amountCents }));
+    .map((t) => ({ fromName: nameOf(t.from), fromColor: colorOf(t.from), toName: nameOf(t.to), amountCents: t.amountCents }));
 
   return {
     householdName: input.householdName,
