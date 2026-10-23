@@ -4,6 +4,7 @@ import type { Transaction, QueueItem, QueueItemInput, Member, Card, TxPatch, Clo
 import { generateId } from '../constants';
 import { distributeByWeight, splitRosterOf } from '../lib/settlement';
 import { closedCycleCard, formatCents, formatCentsWithSymbol, parseAmountToCents } from '../lib/money';
+import { dateOutOfRangeMessage, isDateInRange, presentFilterValues } from '../lib/filters';
 import { api, ApiError } from '../lib/api';
 import { amountWeightsError, customPercentagesError, formatPercentage, parsePercentageDraft, percentagesFromAmounts } from '../lib/percentages';
 import { buildCategorySuggestions } from '../lib/category';
@@ -69,8 +70,6 @@ export interface TransactionListProps {
   setFilterPayerId: (id: string) => void;
   filterCardId: string;
   setFilterCardId: (id: string) => void;
-  minDate?: string;
-  maxDate?: string;
   readOnly?: boolean;
   /** The group client saves go through; a section for another group passes apiFor(itsId). */
   client?: typeof api;
@@ -248,6 +247,11 @@ export default function TransactionList(props: TransactionListProps) {
         : transactions.map((item) => ({ kind: 'approved', item })),
     [mode, pendingItems, transactions],
   );
+  const present = useMemo(() => presentFilterValues(rows.map((row) => row.item)), [rows]);
+  const dateFilter = (set: (date: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDateInRange(e.target.value, present.minDate, present.maxDate)) set(e.target.value);
+    else props.showToast?.(dateOutOfRangeMessage(present.minDate, present.maxDate));
+  };
   const rowsRef = useRef(rows);
   rowsRef.current = [...pendingItems.map(item => ({ kind: 'pending' as const, item })),
     ...transactions.map(item => ({ kind: 'approved' as const, item }))];
@@ -793,9 +797,9 @@ export default function TransactionList(props: TransactionListProps) {
               aria-label="Filter date from"
               type="date"
               value={props.filterDateStart}
-              min={props.minDate}
-              max={props.maxDate}
-              onChange={(e) => props.setFilterDateStart(e.target.value)}
+              min={present.minDate}
+              max={present.maxDate}
+              onChange={dateFilter(props.setFilterDateStart)}
               className={control}
             />
           </label>
@@ -805,9 +809,9 @@ export default function TransactionList(props: TransactionListProps) {
               aria-label="Filter date until"
               type="date"
               value={props.filterDateEnd}
-              min={props.minDate}
-              max={props.maxDate}
-              onChange={(e) => props.setFilterDateEnd(e.target.value)}
+              min={present.minDate}
+              max={present.maxDate}
+              onChange={dateFilter(props.setFilterDateEnd)}
               className={control}
             />
           </label>
@@ -815,18 +819,18 @@ export default function TransactionList(props: TransactionListProps) {
             'Category',
             props.filterCategory,
             props.setFilterCategory,
-            categories.map((category) => ({ id: category, name: category })),
+            [...present.categories].map((category) => ({ id: category, name: category })),
           )}
           {filter(
             'Payer',
             props.filterPayerId,
             props.setFilterPayerId,
-            members.map((member) => ({
+            members.filter((member) => present.payerIds.has(member.id)).map((member) => ({
               id: member.id,
               name: member.displayName,
             })),
           )}
-          {filter('Card', props.filterCardId, props.setFilterCardId, cardOptions)}
+          {filter('Card', props.filterCardId, props.setFilterCardId, cardOptions.filter((card) => present.cardIds.has(card.id)))}
         </div>
         <div className="ledger-filter-footer">
           <span role="status">{processed.length} of {rows.length} expenses</span>

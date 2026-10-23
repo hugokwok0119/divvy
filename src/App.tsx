@@ -167,12 +167,6 @@ const App: React.FC = () => {
     });
   }, [data, filterDateStart, filterDateEnd, filterCategory, filterPayerId, filterCardId]);
 
-  const { minDate, maxDate } = useMemo(() => {
-    if (!data || data.transactions.length === 0) return { minDate: undefined, maxDate: undefined };
-    const dates = data.transactions.map((t) => t.date).sort();
-    return { minDate: dates[0], maxDate: dates[dates.length - 1] };
-  }, [data]);
-
   // Infinity: an open cycle never takes a card's retrospective history label.
   const currentCycleDefault = useMemo(
     () => (data ? cycleName(null, cycleGroupsOf(data.transactions), Infinity, data.members, data.cards) : ''),
@@ -555,8 +549,6 @@ const App: React.FC = () => {
                 setFilterPayerId={setFilterPayerId}
                 filterCardId={filterCardId}
                 setFilterCardId={setFilterCardId}
-                minDate={minDate}
-                maxDate={maxDate}
               />
               </section>
               {otherPendingIds.map((id) => (
