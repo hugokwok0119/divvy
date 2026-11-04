@@ -4,7 +4,11 @@ import {
   GeminiTimeoutError, GeminiQuotaError, GeminiUnsupportedFileError, GeminiUpstreamError,
 } from '../worker/lib/gemini';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe('validateDraft', () => {
   it('accepts a well formed response', () => {
@@ -363,8 +367,11 @@ describe('parseReceipt', () => {
         headers: { 'content-type': 'application/json' },
       }));
     vi.stubGlobal('fetch', fetchMock);
+    vi.useFakeTimers();
 
-    await parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0));
+    const scan = parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0));
+    await vi.runAllTimersAsync();
+    await scan;
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -378,22 +385,109 @@ describe('parseReceipt', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('survives a Gemini overload that lasts four attempts', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: JSON.stringify({
+          transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amount: 4.5, category: 'Dining' }],
+        }) }] } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const scan = parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0));
+    const settled = scan.then((value) => ({ value }), (error: unknown) => ({ error }));
+    await vi.runAllTimersAsync();
+    const outcome = await settled;
+
+    expect(outcome).toEqual({ value: expect.objectContaining({
+      transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amountCents: 450, category: 'Dining' }],
+    }) });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it('waits 1, 2, 4 and 8 seconds between retries before giving up', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const startedAt: number[] = [];
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      startedAt.push(Date.now());
+      return new Response(null, { status: 503 });
+    }));
+
+    const assertion = expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+      .rejects.toThrow(GeminiUpstreamError);
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    const gaps = startedAt.slice(1).map((time, index) => time - startedAt[index]);
+    expect(gaps).toEqual([1000, 2000, 4000, 8000]);
+  });
+
+  it('stops retrying when the next wait would pass the 60 second budget', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    // Each attempt takes 40 s: the second starts at 41 s, and a third would start at 83 s.
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => {
+      setTimeout(() => resolve(new Response(null, { status: 503 })), 40_000);
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const assertion = expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+      .rejects.toThrow(GeminiUpstreamError);
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs each failed attempt with its pass, number and status', async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    // First pass reads fine but does not reconcile; the repair pass hits a persistent overload.
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(statementResponse([{ label: 'Purchases', amount: 99.99, page: 1 }]))
+      .mockResolvedValue(new Response(null, { status: 503 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const assertion = expect(parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0)))
+      .rejects.toThrow(GeminiUpstreamError);
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    const entries = warnSpy.mock.calls.map(([line]) => JSON.parse(line as string));
+    expect(entries).toEqual([1, 2, 3, 4, 5].map((attempt) => ({
+      event: 'gemini_attempt_failed', pass: 'repair', attempt, status: 503, durationMs: expect.any(Number),
+    })));
+  });
+
   it('classifies a persistent 429 as quota exhaustion after retries are used up', async () => {
+    vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 429 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+    const assertion = expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
       .rejects.toThrow(GeminiQuotaError);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it('classifies a persistent 500 as a generic upstream error after retries are used up', async () => {
+    vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 500 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+    const assertion = expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
       .rejects.toThrow(GeminiUpstreamError);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it('sends the API key as a header and never in the request URL', async () => {
@@ -416,13 +510,16 @@ describe('parseReceipt', () => {
   });
 
   it('produces a distinct timeout error and wires an abort signal into fetch', async () => {
+    vi.useFakeTimers();
     vi.stubGlobal('fetch', vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);
       throw new DOMException('The operation timed out.', 'TimeoutError');
     }));
 
-    await expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+    const assertion = expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
       .rejects.toThrow(GeminiTimeoutError);
+    await vi.runAllTimersAsync();
+    await assertion;
   });
 
   it('logs timing, status, row count, and reconciliation with no receipt content', async () => {

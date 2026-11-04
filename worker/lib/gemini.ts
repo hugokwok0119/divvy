@@ -272,9 +272,14 @@ export class GeminiUpstreamError extends Error {
 }
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
-const MAX_ATTEMPTS = 3;
+// Google says to retry 429 and 503 with exponential backoff; its SDK retries four times from about 1 s.
+const MAX_ATTEMPTS = 5;
 const REQUEST_TIMEOUT_MS = 35_000;
-const BACKOFF_BASE_MS = 250;
+const BACKOFF_BASE_MS = 1000;
+// No retry starts past this point in a pass, so a long outage still fails in bounded time.
+const RETRY_BUDGET_MS = 60_000;
+
+type ScanPass = 'first' | 'repair';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -285,28 +290,42 @@ function backoffDelay(failureCount: number): number {
   return BACKOFF_BASE_MS * 2 ** (failureCount - 1) + Math.floor(Math.random() * 100);
 }
 
+/** One line per failed attempt: timing and status only, never request or response content. */
+function logAttemptFailure(pass: ScanPass, attempt: number, status: number | string, startedAt: number): void {
+  console.warn(JSON.stringify({
+    event: 'gemini_attempt_failed', pass, attempt, status, durationMs: Date.now() - startedAt,
+  }));
+}
+
 /**
  * Retries only safe transient failures: 429/500/502/503/504 responses and
  * network/timeout errors. 400/401/403 and any other client-error status
  * return immediately so the caller can classify them without wasting a
  * request on something that will never succeed.
  */
-async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
-  let failures = 0;
-  for (;;) {
+async function fetchWithRetry(url: string, init: RequestInit, pass: ScanPass): Promise<Response> {
+  const passStartedAt = Date.now();
+  for (let attempt = 1; ; attempt += 1) {
+    const attemptStartedAt = Date.now();
+    let failure: unknown;
     try {
       const res = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-      if (res.ok || !RETRYABLE_STATUS.has(res.status)) return res;
-      failures += 1;
-      if (failures >= MAX_ATTEMPTS) return res;
+      if (res.ok) return res;
+      logAttemptFailure(pass, attempt, res.status, attemptStartedAt);
+      if (!RETRYABLE_STATUS.has(res.status)) return res;
+      failure = res;
     } catch (err) {
-      failures += 1;
       const timedOut = err instanceof Error && err.name === 'TimeoutError';
-      if (failures >= MAX_ATTEMPTS) {
-        throw timedOut ? new GeminiTimeoutError() : err;
-      }
+      logAttemptFailure(pass, attempt, timedOut ? 'timeout' : 'network_error', attemptStartedAt);
+      failure = timedOut ? new GeminiTimeoutError() : err;
     }
-    await sleep(backoffDelay(failures));
+    const delay = backoffDelay(attempt);
+    if (attempt >= MAX_ATTEMPTS || Date.now() - passStartedAt + delay > RETRY_BUDGET_MS) {
+      if (failure instanceof Response) return failure;
+      throw failure;
+    }
+    if (failure instanceof Response) await failure.body?.cancel();
+    await sleep(delay);
   }
 }
 
@@ -345,7 +364,7 @@ async function runParse(
   const allowedCategories = normalizeAllowedCategories(requestedCategories);
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
 
-  const extract = async (prompt: string): Promise<ReceiptParseResult> => {
+  const extract = async (prompt: string, pass: ScanPass): Promise<ReceiptParseResult> => {
     const init: RequestInit = {
       method: 'POST',
       // Never in the query string: it survives in access logs and browser history.
@@ -362,7 +381,7 @@ async function runParse(
       }),
     };
 
-    const res = await fetchWithRetry(url, init);
+    const res = await fetchWithRetry(url, init, pass);
     if (!res.ok) throw classifyFailure(res.status);
 
     const body = await res.json<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>();
@@ -376,9 +395,9 @@ async function runParse(
 
   const first = await extract(isStatement
     ? statementPrompt(allowedCategories)
-    : receiptPrompt(allowedCategories));
+    : receiptPrompt(allowedCategories), 'first');
   if (!isStatement || first.reconciled) return first;
-  return extract(repairPrompt(first, allowedCategories));
+  return extract(repairPrompt(first, allowedCategories), 'repair');
 }
 
 export async function parseReceipt(
