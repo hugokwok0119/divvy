@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api';
 import { formatCentsWithSymbol, aggregateAnalytics, formatMonthLabel, computeYAxisTicks } from '../lib/money';
 import { ArrowLeft, TrendingUp, PieChart, Filter, X } from 'lucide-react';
 import TransactionList from './TransactionList';
+import { dateOutOfRangeMessage, isDateInRange, presentFilterValues } from '../lib/filters';
 
 interface Props {
   members: Member[];
@@ -30,6 +31,12 @@ const AnalyticsPage: React.FC<Props> = ({ members, cards, categories, onBack, sh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const present = useMemo(() => presentFilterValues(rows ?? []), [rows]);
+  const dateFilter = (set: (date: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDateInRange(e.target.value, present.minDate, present.maxDate)) set(e.target.value);
+    else showToast(dateOutOfRangeMessage(present.minDate, present.maxDate));
+  };
+
   const handleClearFilters = () => {
     setFilterDateStart('');
     setFilterDateEnd('');
@@ -50,7 +57,7 @@ const AnalyticsPage: React.FC<Props> = ({ members, cards, categories, onBack, sh
       return true;
     });
 
-    return { ...aggregateAnalytics(filtered), filtered };
+    return aggregateAnalytics(filtered);
   }, [rows, filterDateStart, filterDateEnd, filterCategory, filterPayerId, filterCardId]);
 
   const monthKeys = Object.keys(stats.monthTotals).sort();
@@ -135,16 +142,16 @@ const AnalyticsPage: React.FC<Props> = ({ members, cards, categories, onBack, sh
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2 py-1.5 shadow-sm">
             <span className="text-xs font-bold text-slate-500 uppercase" aria-hidden="true">Dates:</span>
-            <input type="date" aria-label="Filter from date" className="text-xs outline-none bg-white text-slate-700 font-medium" value={filterDateStart} onChange={(e) => setFilterDateStart(e.target.value)} />
+            <input type="date" aria-label="Filter from date" className="text-xs outline-none bg-white text-slate-700 font-medium" value={filterDateStart} min={present.minDate} max={present.maxDate} onChange={dateFilter(setFilterDateStart)} />
             <span className="text-slate-400" aria-hidden="true">-</span>
-            <input type="date" aria-label="Filter to date" className="text-xs outline-none bg-white text-slate-700 font-medium" value={filterDateEnd} onChange={(e) => setFilterDateEnd(e.target.value)} />
+            <input type="date" aria-label="Filter to date" className="text-xs outline-none bg-white text-slate-700 font-medium" value={filterDateEnd} min={present.minDate} max={present.maxDate} onChange={dateFilter(setFilterDateEnd)} />
           </div>
 
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2 py-1.5 shadow-sm">
             <span className="text-xs font-bold text-slate-500 uppercase" aria-hidden="true">Cat:</span>
             <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} aria-label="Filter by category" className="text-xs outline-none text-slate-700 bg-transparent cursor-pointer min-w-[80px]">
               <option value="">All</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              {[...present.categories].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -152,7 +159,7 @@ const AnalyticsPage: React.FC<Props> = ({ members, cards, categories, onBack, sh
             <span className="text-xs font-bold text-slate-500 uppercase" aria-hidden="true">Payer:</span>
             <select value={filterPayerId} onChange={(e) => setFilterPayerId(e.target.value)} aria-label="Filter by payer" className="text-xs outline-none text-slate-700 bg-transparent cursor-pointer min-w-[80px]">
               <option value="">All</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.displayName}</option>)}
+              {members.filter((m) => present.payerIds.has(m.id)).map((m) => <option key={m.id} value={m.id}>{m.displayName}</option>)}
             </select>
           </div>
 
@@ -160,7 +167,7 @@ const AnalyticsPage: React.FC<Props> = ({ members, cards, categories, onBack, sh
             <span className="text-xs font-bold text-slate-500 uppercase" aria-hidden="true">Card:</span>
             <select value={filterCardId} onChange={(e) => setFilterCardId(e.target.value)} aria-label="Filter by card" className="text-xs outline-none text-slate-700 bg-transparent cursor-pointer min-w-[80px]">
               <option value="">All</option>
-              {cards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {cards.filter((c) => present.cardIds.has(c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 
@@ -301,11 +308,12 @@ const AnalyticsPage: React.FC<Props> = ({ members, cards, categories, onBack, sh
           <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Detailed Transactions</h3>
         </div>
         <TransactionList
-          transactions={stats.filtered}
+          transactions={rows}
           members={members}
           cards={cards}
           categories={categories}
           readOnly
+          showToast={showToast}
           filterDateStart={filterDateStart}
           setFilterDateStart={setFilterDateStart}
           filterDateEnd={filterDateEnd}
