@@ -410,7 +410,37 @@ describe('parseReceipt', () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
-  it('falls back to Gemini 3.5 Flash Lite after two failed Gemini 3.8 Flash attempts', async () => {
+  it('falls back to Gemini 3.5 Flash Lite inside the budget when Gemini 3.8 Flash times out', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const models: string[] = [];
+    vi.stubGlobal('fetch', vi.fn((input: string | URL | Request) => {
+      const model = String(input).match(/\/models\/([^:]+):/)?.[1] ?? '';
+      models.push(model);
+      if (model === 'gemini-3.8-flash') {
+        return new Promise<Response>((_, reject) => {
+          setTimeout(() => reject(new DOMException('The operation timed out.', 'TimeoutError')), 35_000);
+        });
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: JSON.stringify({
+          transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amount: 4.5, category: 'Dining' }],
+        }) }] } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    }));
+
+    const scan = parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0));
+    const settled = scan.then((value) => ({ value }), (error: unknown) => ({ error }));
+    await vi.runAllTimersAsync();
+    const outcome = await settled;
+
+    expect(outcome).toEqual({ value: expect.objectContaining({
+      transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amountCents: 450, category: 'Dining' }],
+    }) });
+    expect(models).toEqual(['gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+  });
+
+  it('falls back to Gemini 3.5 Flash Lite after one failed Gemini 3.8 Flash attempt', async () => {
     vi.useFakeTimers();
     const models: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -432,7 +462,7 @@ describe('parseReceipt', () => {
     expect(outcome).toEqual({ value: expect.objectContaining({
       transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amountCents: 450, category: 'Dining' }],
     }) });
-    expect(models).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
+    expect(models).toEqual(['gemini-3.8-flash', 'gemini-3.5-flash-lite']);
   });
 
   it('waits 1, 2, 4 and 8 seconds between retries before giving up', async () => {
@@ -490,7 +520,7 @@ describe('parseReceipt', () => {
       event: 'gemini_attempt_failed',
       pass: 'repair',
       attempt,
-      model: attempt <= 2 ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite',
+      model: attempt === 1 ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite',
       status: 503,
       durationMs: expect.any(Number),
     })));

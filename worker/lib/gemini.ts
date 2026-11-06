@@ -278,11 +278,12 @@ const REQUEST_TIMEOUT_MS = 35_000;
 const BACKOFF_BASE_MS = 1000;
 // No retry starts past this point in a pass, so a long outage still fails in bounded time.
 const RETRY_BUDGET_MS = 60_000;
-// 3.8 Flash keeps answering 503 on the free tier, which allows it 5 requests a minute.
-// After two failed attempts, the rest of the pass uses Flash Lite, which has its own capacity and quota.
+// 3.8 Flash keeps answering 503 or hanging until the timeout on the free tier, which allows it 5 requests a minute.
+// After one failed attempt, the rest of the pass uses Flash Lite, which has its own capacity and quota.
+// One attempt, not two: two 35 s timeouts would use the whole budget before Flash Lite runs.
 const PRIMARY_MODEL = 'gemini-3.8-flash';
 const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
-const PRIMARY_ATTEMPTS = 2;
+const PRIMARY_ATTEMPTS = 1;
 
 type ScanPass = 'first' | 'repair';
 
