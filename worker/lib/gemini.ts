@@ -278,8 +278,16 @@ const REQUEST_TIMEOUT_MS = 35_000;
 const BACKOFF_BASE_MS = 1000;
 // No retry starts past this point in a pass, so a long outage still fails in bounded time.
 const RETRY_BUDGET_MS = 60_000;
+// 3.8 Flash keeps answering 503 on the free tier, which allows it 5 requests a minute.
+// After two failed attempts, the rest of the pass uses Flash Lite, which has its own capacity and quota.
+const PRIMARY_MODEL = 'gemini-3.8-flash';
+const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+const PRIMARY_ATTEMPTS = 2;
 
 type ScanPass = 'first' | 'repair';
+
+const modelUrl = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -291,9 +299,11 @@ function backoffDelay(failureCount: number): number {
 }
 
 /** One line per failed attempt: timing and status only, never request or response content. */
-function logAttemptFailure(pass: ScanPass, attempt: number, status: number | string, startedAt: number): void {
+function logAttemptFailure(
+  pass: ScanPass, attempt: number, model: string, status: number | string, startedAt: number,
+): void {
   console.warn(JSON.stringify({
-    event: 'gemini_attempt_failed', pass, attempt, status, durationMs: Date.now() - startedAt,
+    event: 'gemini_attempt_failed', pass, attempt, model, status, durationMs: Date.now() - startedAt,
   }));
 }
 
@@ -303,20 +313,21 @@ function logAttemptFailure(pass: ScanPass, attempt: number, status: number | str
  * return immediately so the caller can classify them without wasting a
  * request on something that will never succeed.
  */
-async function fetchWithRetry(url: string, init: RequestInit, pass: ScanPass): Promise<Response> {
+async function fetchWithRetry(init: RequestInit, pass: ScanPass): Promise<Response> {
   const passStartedAt = Date.now();
   for (let attempt = 1; ; attempt += 1) {
+    const model = attempt <= PRIMARY_ATTEMPTS ? PRIMARY_MODEL : FALLBACK_MODEL;
     const attemptStartedAt = Date.now();
     let failure: unknown;
     try {
-      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      const res = await fetch(modelUrl(model), { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
       if (res.ok) return res;
-      logAttemptFailure(pass, attempt, res.status, attemptStartedAt);
+      logAttemptFailure(pass, attempt, model, res.status, attemptStartedAt);
       if (!RETRYABLE_STATUS.has(res.status)) return res;
       failure = res;
     } catch (err) {
       const timedOut = err instanceof Error && err.name === 'TimeoutError';
-      logAttemptFailure(pass, attempt, timedOut ? 'timeout' : 'network_error', attemptStartedAt);
+      logAttemptFailure(pass, attempt, model, timedOut ? 'timeout' : 'network_error', attemptStartedAt);
       failure = timedOut ? new GeminiTimeoutError() : err;
     }
     const delay = backoffDelay(attempt);
@@ -362,8 +373,6 @@ async function runParse(
   const base64 = toBase64(bytes);
   const isStatement = mime === 'application/pdf';
   const allowedCategories = normalizeAllowedCategories(requestedCategories);
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
-
   const extract = async (prompt: string, pass: ScanPass): Promise<ReceiptParseResult> => {
     const init: RequestInit = {
       method: 'POST',
@@ -381,7 +390,7 @@ async function runParse(
       }),
     };
 
-    const res = await fetchWithRetry(url, init, pass);
+    const res = await fetchWithRetry(init, pass);
     if (!res.ok) throw classifyFailure(res.status);
 
     const body = await res.json<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>();
