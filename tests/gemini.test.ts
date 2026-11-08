@@ -410,31 +410,6 @@ describe('parseReceipt', () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
-  it('falls back to Gemini 3.5 Flash Lite after two failed Gemini 3.8 Flash attempts', async () => {
-    vi.useFakeTimers();
-    const models: string[] = [];
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-      const model = String(input).match(/\/models\/([^:]+):/)?.[1] ?? '';
-      models.push(model);
-      if (model === 'gemini-3.8-flash') return new Response(null, { status: 503 });
-      return new Response(JSON.stringify({
-        candidates: [{ content: { parts: [{ text: JSON.stringify({
-          transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amount: 4.5, category: 'Dining' }],
-        }) }] } }],
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }));
-
-    const scan = parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0));
-    const settled = scan.then((value) => ({ value }), (error: unknown) => ({ error }));
-    await vi.runAllTimersAsync();
-    const outcome = await settled;
-
-    expect(outcome).toEqual({ value: expect.objectContaining({
-      transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amountCents: 450, category: 'Dining' }],
-    }) });
-    expect(models).toEqual(['gemini-3.8-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']);
-  });
-
   it('waits 1, 2, 4 and 8 seconds between retries before giving up', async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, 'random').mockReturnValue(0);
@@ -470,7 +445,7 @@ describe('parseReceipt', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('logs each failed attempt with its pass, number, model and status', async () => {
+  it('logs each failed attempt with its pass, number and status', async () => {
     vi.useFakeTimers();
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -487,12 +462,7 @@ describe('parseReceipt', () => {
 
     const entries = warnSpy.mock.calls.map(([line]) => JSON.parse(line as string));
     expect(entries).toEqual([1, 2, 3, 4, 5].map((attempt) => ({
-      event: 'gemini_attempt_failed',
-      pass: 'repair',
-      attempt,
-      model: attempt <= 2 ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite',
-      status: 503,
-      durationMs: expect.any(Number),
+      event: 'gemini_attempt_failed', pass: 'repair', attempt, status: 503, durationMs: expect.any(Number),
     })));
   });
 
@@ -506,6 +476,23 @@ describe('parseReceipt', () => {
     await vi.runAllTimersAsync();
     await assertion;
     expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  // Every scan stays on Gemini 3.8 Flash: Flash Lite misread more statements in testing (#74).
+  it('sends every retry to Gemini 3.8 Flash and never to a smaller model', async () => {
+    vi.useFakeTimers();
+    const models: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      models.push(String(input).match(/\/models\/([^:]+):/)?.[1] ?? '');
+      return new Response(null, { status: 503 });
+    }));
+
+    const assertion = expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+      .rejects.toThrow(GeminiUpstreamError);
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    expect(models).toEqual(Array(5).fill('gemini-3.8-flash'));
   });
 
   it('classifies a persistent 500 as a generic upstream error after retries are used up', async () => {
