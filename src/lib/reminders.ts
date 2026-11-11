@@ -31,3 +31,9 @@ export function todayIn(timeZone: string, now = new Date()): string {
     return new Intl.DateTimeFormat('en-CA', options).format(now);
   }
 }
+
+/** The `YYYY-MM` month `offset` months away from `monthKey`. */
+export function shiftMonth(monthKey: string, offset: number): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1 + offset, 1)).toISOString().slice(0, 7);
+}

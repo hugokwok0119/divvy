@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarDays, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import { statementDateFor } from '../lib/money';
-import { monthReminders, todayIn, type Reminder } from '../lib/reminders';
+import { monthReminders, shiftMonth, todayIn, type Reminder } from '../lib/reminders';
 import { distinctColors } from './ledger';
 import type { Card, Member, ReminderCompletion } from '../types';
 
@@ -10,6 +10,7 @@ const RENT_COLOR = '#0f172a';
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const format = (date: string, options: Intl.DateTimeFormatOptions) =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { ...options, timeZone: 'UTC' });
+const monthName = (monthKey: string) => format(`${monthKey}-01`, { month: 'long', year: 'numeric' });
 
 interface ReminderCalendarProps {
   cards: Card[];
@@ -18,16 +19,17 @@ interface ReminderCalendarProps {
   rentReminder: boolean;
 }
 
-/** Current-month statement and rent reminders with shared, manual ticks. */
+/** Statement and rent reminders with shared, manual ticks, for the current month or the two before it. */
 export default function ReminderCalendar({ cards, members, timezone, rentReminder }: ReminderCalendarProps) {
   const today = todayIn(timezone);
-  const monthKey = today.slice(0, 7);
+  const [offset, setOffset] = useState(0);
+  const monthKey = shiftMonth(today.slice(0, 7), offset);
   const [year, month] = monthKey.split('-').map(Number);
   const reminders = monthReminders(year, month, cards, rentReminder);
   const colors = distinctColors(reminders.flatMap((r) => r.cardId ?? []));
   const colorOf = (r: Reminder) => (r.cardId ? colors[r.cardId] : RENT_COLOR);
   const lastDay = Number(statementDateFor(year, month, 31).slice(8));
-  const offset = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
 
   const [completions, setCompletions] = useState<ReminderCompletion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export default function ReminderCalendar({ cards, members, timezone, rentReminde
     return () => { box.close(); opener?.focus(); };
   }, [openDate]);
 
+  const step = (by: number) => { setOffset(offset + by); setError(null); };
   const close = () => { if (!saving) { setOpenDate(null); setError(null); } };
   const toggle = async (r: Reminder, done: boolean) => {
     setSaving(r.id);
@@ -69,15 +72,31 @@ export default function ReminderCalendar({ cards, members, timezone, rentReminde
   // On desktop the day grid shrinks (never scrolls) when the sticky column runs short of height.
   return (
     <section aria-labelledby="reminder-calendar-title" className="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <h2 id="reminder-calendar-title" className="flex items-center gap-2 text-heading2 text-slate-800">
-        <CalendarDays size={18} className="text-blue-600" aria-hidden="true" />
-        {format(today, { month: 'long', year: 'numeric' })}
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="reminder-calendar-title" aria-live="polite" className="flex items-center gap-2 text-heading2 text-slate-800">
+          <CalendarDays size={18} className="text-blue-600" aria-hidden="true" />
+          {monthName(monthKey)}
+        </h2>
+        <div className="flex shrink-0 gap-1">
+          {([[-1, 'Previous', ChevronLeft, offset === -2], [1, 'Next', ChevronRight, offset === 0]] as const).map(([by, label, Icon, disabled]) => (
+            <button
+              key={label}
+              type="button"
+              aria-label={`${label} month, ${monthName(shiftMonth(monthKey, by))}`}
+              disabled={disabled}
+              onClick={() => step(by)}
+              className="inline-flex h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:text-slate-300 disabled:hover:bg-transparent"
+            >
+              <Icon size={18} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="mt-2 grid shrink-0 grid-cols-7 gap-1 text-center">
         {WEEKDAYS.map((day) => <abbr key={day} title={day} className="text-body2 text-slate-500 no-underline">{day[0]}</abbr>)}
       </div>
       <div className="mt-1 grid min-h-0 grid-cols-7 auto-rows-[2.75rem] gap-1 text-center lg:auto-rows-[minmax(0,2rem)]">
-        {Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}
+        {Array.from({ length: firstWeekday }, (_, i) => <span key={`blank-${i}`} />)}
         {Array.from({ length: lastDay }, (_, i) => {
           const date = `${monthKey}-${String(i + 1).padStart(2, '0')}`;
           const due = reminders.filter((r) => r.date === date);
@@ -103,7 +122,7 @@ export default function ReminderCalendar({ cards, members, timezone, rentReminde
           );
         })}
       </div>
-      <ul aria-label="Reminders this month" className="mt-2 shrink-0 space-y-0.5 border-t border-slate-100 pt-2 text-body2 text-slate-600">
+      <ul aria-label={`Reminders in ${monthName(monthKey)}`} className="mt-2 shrink-0 space-y-0.5 border-t border-slate-100 pt-2 text-body2 text-slate-600">
         {reminders.map((r) => (
           <li key={r.id} className="flex items-center gap-2">
             <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorOf(r) }} />
