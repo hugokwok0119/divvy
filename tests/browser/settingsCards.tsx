@@ -38,6 +38,7 @@ function mount({ cards = [card], members: people = members, customCategories = [
   let releaseGroupDelete: (() => void) | null = null;
   let groupsChanged = 0;
   const deletedGroups: string[] = [];
+  const cardReminders: [string, boolean][] = [];
   api.deleteGroup = async () => { groupDeletes++; await new Promise<void>((resolve) => { releaseGroupDelete = resolve; }); };
   api.deleteCard = async (id) => { deleted.push(id); await new Promise<void>((resolve) => { releaseDelete = resolve; }); };
   api.deleteMember = async (id) => { removedMembers.push(id); };
@@ -45,6 +46,7 @@ function mount({ cards = [card], members: people = members, customCategories = [
   api.reorderMembers = async (ids) => { memberOrders.push(ids); };
   api.updateHousehold = async (patch) => { households.push(patch); return patch; };
   api.upsertCard = async (input) => { saved.push(input); if (release === null) await new Promise<void>((resolve) => { release = resolve; }); return input; };
+  api.setCardReminder = async (id, reminder) => { cardReminders.push([id, reminder]); return { ...cards.find((c) => c.id === id)!, reminder: reminder ? 1 : 0 }; };
   api.previewCardHistory = async (input) => { previews.push(input); return { cycles: 1, expenses: 2 }; };
   flushSync(() => root.render(<SettingsPage members={people} cards={cards} customCategories={customCategories} rentReminder role={role}
     groupName="Ours" myMemberId="m1" onGroupsChanged={async () => { groupsChanged++; }} onGroupDeleted={(name) => { deletedGroups.push(name); }}
@@ -57,7 +59,7 @@ function mount({ cards = [card], members: people = members, customCategories = [
   const choice = (title: string) => [...host.querySelectorAll('[role="radiogroup"] label')].find((l) => l.textContent?.includes(title))?.querySelector('input') as unknown as HTMLInputElement | undefined;
   const button = (text: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text);
   return {
-    host, saved, previews, deleted, removedMembers, cardOrders, memberOrders, households, toasts, deletedGroups,
+    host, saved, previews, deleted, removedMembers, cardOrders, memberOrders, households, toasts, deletedGroups, cardReminders,
     groupDeletes: () => groupDeletes, groupsChanged: () => groupsChanged,
     finishDelete: () => releaseDelete?.(),
     finishGroupDelete: () => releaseGroupDelete?.(),
@@ -255,4 +257,29 @@ await check('a member sees the group name read-only and no delete button', async
   assert(view.host.textContent!.includes('Ours'), 'Group name not shown');
   assert(!view.button('Delete group'), 'Member sees Delete group');
 }, { role: 'member' });
+const reminders = (view: ReturnType<typeof mount>) => [...view.host.querySelectorAll('section')].find((s) => s.querySelector('h3')?.textContent === 'Reminders')!;
+const reminderRows = (view: ReturnType<typeof mount>) => [...reminders(view).querySelectorAll('label')].map((l) => l.textContent);
+const reminderBox = (view: ReturnType<typeof mount>, text: string) => [...reminders(view).querySelectorAll('label')].find((l) => l.textContent?.startsWith(text))?.querySelector('input') ?? undefined;
+const amexDay: Card = { ...card, statementDay: 15 };
+const visaDay: Card = { ...visa, memberId: 'm2', statementDay: 3, reminder: 0 };
+await check('lists rent and each card with an end day', async (view) => {
+  const rows = reminderRows(view);
+  assert(JSON.stringify(rows) === '["Rent · month end","Amex statement · day 15Alex","Visa statement · day 3Hugo"]', `Wrong rows ${JSON.stringify(rows)}`);
+  assert(reminderBox(view, 'Rent')?.checked && reminderBox(view, 'Amex')?.checked && !reminderBox(view, 'Visa')?.checked, 'Wrong checked state');
+  assert(reminders(view).textContent!.includes('Cards without an end day have no reminder.'), 'End day note missing');
+}, { cards: [amexDay, visaDay], members: [...members, hugo] });
+await check('turning a card reminder off saves at once without the card-save dialog', async (view) => {
+  flushSync(() => reminderBox(view, 'Amex')!.click()); await flush();
+  assert(JSON.stringify(view.cardReminders) === '[["c1",false]]', `Wrong calls ${JSON.stringify(view.cardReminders)}`);
+  assert(!view.dialog() && view.saved.length === 0 && view.households.length === 0, 'Opened the card-save dialog or saved elsewhere');
+}, { cards: [amexDay] });
+await check('a card without an end day is not listed', async (view) => {
+  const rows = reminderRows(view);
+  assert(JSON.stringify(rows) === '["Rent · month end","Amex statement · day 15Alex"]', `Wrong rows ${JSON.stringify(rows)}`);
+}, { cards: [amexDay, { ...visa, statementDay: null }] });
+await check('a member sees the reminders disabled', async (view) => {
+  const boxes = [...reminders(view).querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+  assert(boxes.length === 2 && boxes.every((b) => b.disabled), `Wrong boxes ${boxes.length}`);
+  assert(reminders(view).textContent!.includes('Only the household owner can change reminders.'), 'Owner note missing');
+}, { cards: [amexDay], role: 'member' });
 document.querySelector('[role="status"]')!.textContent = `${results.filter((r) => r.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;

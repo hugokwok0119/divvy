@@ -523,8 +523,27 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentR
                   )}
                   className="h-5 w-5 accent-blue-600"
                 />
-                Remind me about rent at month end
+                Rent · month end
               </label>
+              {cards.filter((c) => !c.archived && c.statementDay !== null).map((card) => (
+                <label key={card.id} className="flex min-h-11 items-center gap-3 text-body1 text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={card.reminder === 1}
+                    disabled={role !== 'owner'}
+                    onChange={(e) => void withErrorToast(
+                      () => api.setCardReminder(card.id, e.target.checked).then(() => undefined),
+                      'Could not save that reminder.',
+                    )}
+                    className="h-5 w-5 accent-blue-600"
+                  />
+                  <span>
+                    {card.name} statement · day {card.statementDay}
+                    <span className="block text-body2 text-slate-500">{members.find((m) => m.id === card.memberId)?.displayName}</span>
+                  </span>
+                </label>
+              ))}
+              <p className="text-body2 text-slate-500">Cards without an end day have no reminder.</p>
               {role !== 'owner' && (
                 <p className="text-body2 text-slate-400 italic">Only the household owner can change reminders.</p>
               )}
