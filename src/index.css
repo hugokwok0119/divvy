@@ -103,3 +103,8 @@ body {
     font-size: 16px;
   }
 }
+
+/* Toast entry; motion-reduce sets --toast-shift to 0 so only opacity animates. */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(var(--toast-shift, -0.5rem)); }
+}

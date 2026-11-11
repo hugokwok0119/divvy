@@ -440,6 +440,7 @@ const App: React.FC = () => {
           {header}
         </div>
       ) : header}
+      <Toast toast={toast} onClose={clearToast} demo={!!demo} />
       {demo && howItWorksOpen && <demo.HowItWorksCard onClose={() => setHowItWorksOpen(false)} />}
 
       {newGroupCard}
@@ -447,8 +448,6 @@ const App: React.FC = () => {
 
       {/* Keyed by group: every view remounts and refetches when the group changes. */}
       <main key={data.household.id} className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Toast toast={toast} onClose={clearToast} />
-
         {currentView === 'dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:grid-rows-[auto_1fr] gap-8">
             {/* Desktop: a sticky, width-capped right column (no scroller) with the
