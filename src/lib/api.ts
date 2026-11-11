@@ -167,6 +167,9 @@ function makeApi(headers: () => Record<string, string>) {
     updateHousehold: (patch: unknown) =>
       req<unknown>('/api/household', { method: 'PATCH', body: JSON.stringify(patch) }),
 
+    deleteGroup: () =>
+      req<void>('/api/household', { method: 'DELETE' }),
+
     upsertMember: (input: unknown) =>
       req<unknown>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
 

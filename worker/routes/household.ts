@@ -1,6 +1,7 @@
 // Data access only through scope.repo.
 import { Hono, type Context } from 'hono';
 import { requireScope, requireOwner } from '../lib/scope';
+import { listGroups } from '../lib/groups';
 import { validateHouseholdPatch, validateMemberInput, validateCardInput, validateReminderInput, validateOrderInput, REMINDER_MONTH } from '../lib/validate';
 import type { Env } from '../index';
 
@@ -12,6 +13,17 @@ householdRoutes.patch('/', async (c) => {
   const { value, fields } = validateHouseholdPatch(await c.req.json().catch(() => null));
   if (!value) return c.json({ error: 'Invalid household update', fields }, 400);
   return c.json(await scope.repo.updateHousehold(value));
+});
+
+householdRoutes.delete('/', async (c) => {
+  const scope = await requireScope(c);
+  requireOwner(scope);
+  // Never leave the caller with no group to open.
+  if ((await listGroups(c)).groups.length < 2) {
+    return c.json({ error: 'Create another group before deleting your only group' }, 409);
+  }
+  await scope.repo.deleteHousehold();
+  return c.body(null, 204);
 });
 
 async function reorder(c: Context<{ Bindings: Env }>, kind: 'members' | 'cards') {
