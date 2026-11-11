@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
 import { statementDateFor } from '../lib/money';
@@ -40,15 +40,17 @@ export default function ReminderCalendar({ cards, members, timezone, rentReminde
   const completion = (r: Reminder) => completions.find((c) => c.reminderId === r.id);
 
   // Refetch on focus like App's bootstrap, so another member's ticks show up.
-  const load = useCallback(() => api.reminders(monthKey).then(
-    (rows) => { setCompletions(rows); setError(null); },
-    () => setError('Could not load reminder ticks.'),
-  ), [monthKey]);
+  // Answers that arrive after the shown month changed are dropped.
   useEffect(() => {
+    let live = true;
+    const load = () => api.reminders(monthKey).then(
+      (rows) => { if (live) { setCompletions(rows); setError(null); } },
+      () => { if (live) setError('Could not load reminder ticks.'); },
+    );
     void load();
     window.addEventListener('focus', load);
-    return () => window.removeEventListener('focus', load);
-  }, [load]);
+    return () => { live = false; window.removeEventListener('focus', load); };
+  }, [monthKey]);
 
   useEffect(() => {
     const box = dialog.current, opener = trigger.current;
@@ -57,7 +59,8 @@ export default function ReminderCalendar({ cards, members, timezone, rentReminde
     return () => { box.close(); opener?.focus(); };
   }, [openDate]);
 
-  const step = (by: number) => { setOffset(offset + by); setError(null); };
+  // Ticks are keyed by reminder id, so the old month's rows must not show on the new one.
+  const step = (by: number) => { setOffset(offset + by); setCompletions([]); setError(null); };
   const close = () => { if (!saving) { setOpenDate(null); setError(null); } };
   const toggle = async (r: Reminder, done: boolean) => {
     setSaving(r.id);
@@ -83,9 +86,9 @@ export default function ReminderCalendar({ cards, members, timezone, rentReminde
               key={label}
               type="button"
               aria-label={`${label} month, ${monthName(shiftMonth(monthKey, by))}`}
-              disabled={disabled}
-              onClick={() => step(by)}
-              className="inline-flex h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:text-slate-300 disabled:hover:bg-transparent"
+              aria-disabled={disabled || undefined}
+              onClick={() => { if (!disabled) step(by); }}
+              className="inline-flex h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 aria-disabled:cursor-default aria-disabled:text-slate-300 aria-disabled:hover:bg-transparent"
             >
               <Icon size={18} aria-hidden="true" />
             </button>
