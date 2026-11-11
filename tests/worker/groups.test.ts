@@ -203,4 +203,12 @@ describe('DELETE /api/household', () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: 'No household membership' });
   });
+
+  it('still opens the caller\'s other group after a delete', async () => {
+    // h1 holds u1's household_members.user_id link; h2 is reached through member_accounts.
+    const cookie = await signInAs('u1', 'owner@example.com');
+    expect((await erase(cookie, 'h1')).status).toBe(204);
+    const res = await workerApp.request('http://localhost/api/bootstrap', { headers: { Cookie: cookie, 'x-divvy-group': 'h2' } }, testEnv);
+    expect(res.status).toBe(200);
+  });
 });

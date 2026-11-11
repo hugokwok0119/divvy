@@ -59,7 +59,7 @@ const App: React.FC = () => {
   const groupsRequest = useRef(0);
   const reloadGroups = useCallback(() => {
     const request = ++groupsRequest.current;
-    api.groups().then((list) => { if (request === groupsRequest.current) setGroupList(list); }, () => {});
+    return api.groups().then((list) => { if (request === groupsRequest.current) setGroupList(list); }, () => {});
   }, []);
   // Reload on open so pending counts are fresh.
   const openSwitcher = useCallback((open: boolean) => {
@@ -312,6 +312,16 @@ const App: React.FC = () => {
     setCloseConfirmation(null);
     void refresh();
   };
+  const groupDeleted = (name: string) => {
+    const remaining = groupList?.groups.filter((g) => g.id !== currentGroupId()) ?? [];
+    setGroupList((list) => list && { ...list, groups: remaining });
+    setCurrentGroup(null);
+    setCurrentView('dashboard');
+    showToast(`Deleted ${name}`, 'success');
+    const pick = pickGroup(null, remaining);
+    if (pick) selectGroup(pick);
+    else { setData(null); setChoosingGroup(true); setSwitcherOpen(true); }
+  };
   const switcher = groupList && (
     <GroupSwitcher
       groups={groupList.groups}
@@ -374,7 +384,7 @@ const App: React.FC = () => {
   );
   if (!data) return <div className="min-h-screen grid place-items-center text-slate-500">Loading…</div>;
 
-  const header = currentView !== 'settings' && (
+  const header = (
     <header className={`bg-white border-b border-slate-200${demo ? '' : ' sticky top-0 z-30'}`}>
       <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
@@ -607,6 +617,10 @@ const App: React.FC = () => {
             customCategories={data.household.customCategories}
             rentReminder={data.household.rentReminder}
             role={data.me.role}
+            groupName={data.household.name}
+            myMemberId={data.me.memberId}
+            onGroupsChanged={reloadGroups}
+            onGroupDeleted={groupDeleted}
             onBack={() => setCurrentView('dashboard')}
             onChanged={refresh}
             showToast={showToast}

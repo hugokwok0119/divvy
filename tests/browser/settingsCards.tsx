@@ -13,14 +13,14 @@ const assert = (value: unknown, message: string) => { if (!value) throw new Erro
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const results: string[] = [];
 
-type Options = { cards?: Card[]; members?: Member[]; customCategories?: string[] };
+type Options = { cards?: Card[]; members?: Member[]; customCategories?: string[]; role?: 'owner' | 'member' };
 async function check(name: string, run: (view: ReturnType<typeof mount>) => Promise<void>, options: Options = {}) {
   const view = mount(options);
   try { await run(view); results.push(`PASS ${name}`); } catch (error) { results.push(`FAIL ${name}: ${error instanceof Error ? error.message : String(error)}`); }
   view.unmount();
 }
 
-function mount({ cards = [card], members: people = members, customCategories = [] }: Options = {}) {
+function mount({ cards = [card], members: people = members, customCategories = [], role = 'owner' }: Options = {}) {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -34,6 +34,11 @@ function mount({ cards = [card], members: people = members, customCategories = [
   const households: unknown[] = [];
   const toasts: string[] = [];
   let releaseDelete: (() => void) | null = null;
+  let groupDeletes = 0;
+  let releaseGroupDelete: (() => void) | null = null;
+  let groupsChanged = 0;
+  const deletedGroups: string[] = [];
+  api.deleteGroup = async () => { groupDeletes++; await new Promise<void>((resolve) => { releaseGroupDelete = resolve; }); };
   api.deleteCard = async (id) => { deleted.push(id); await new Promise<void>((resolve) => { releaseDelete = resolve; }); };
   api.deleteMember = async (id) => { removedMembers.push(id); };
   api.reorderCards = async (ids) => { cardOrders.push(ids); };
@@ -41,7 +46,8 @@ function mount({ cards = [card], members: people = members, customCategories = [
   api.updateHousehold = async (patch) => { households.push(patch); return patch; };
   api.upsertCard = async (input) => { saved.push(input); if (release === null) await new Promise<void>((resolve) => { release = resolve; }); return input; };
   api.previewCardHistory = async (input) => { previews.push(input); return { cycles: 1, expenses: 2 }; };
-  flushSync(() => root.render(<SettingsPage members={people} cards={cards} customCategories={customCategories} rentReminder role="owner"
+  flushSync(() => root.render(<SettingsPage members={people} cards={cards} customCategories={customCategories} rentReminder role={role}
+    groupName="Ours" myMemberId="m1" onGroupsChanged={async () => { groupsChanged++; }} onGroupDeleted={(name) => { deletedGroups.push(name); }}
     onBack={() => {}} onChanged={async () => {}} showToast={(message) => { toasts.push(message); }} />));
   const set = (element: HTMLInputElement | HTMLSelectElement, value: string) => flushSync(() => {
     const proto = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
@@ -51,8 +57,11 @@ function mount({ cards = [card], members: people = members, customCategories = [
   const choice = (title: string) => [...host.querySelectorAll('[role="radiogroup"] label')].find((l) => l.textContent?.includes(title))?.querySelector('input') as unknown as HTMLInputElement | undefined;
   const button = (text: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text);
   return {
-    host, saved, previews, deleted, removedMembers, cardOrders, memberOrders, households, toasts,
+    host, saved, previews, deleted, removedMembers, cardOrders, memberOrders, households, toasts, deletedGroups,
+    groupDeletes: () => groupDeletes, groupsChanged: () => groupsChanged,
     finishDelete: () => releaseDelete?.(),
+    finishGroupDelete: () => releaseGroupDelete?.(),
+    dialogButton: (text: string) => [...(host.querySelector('dialog')?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((b) => b.textContent?.trim() === text),
     name: () => host.querySelector<HTMLInputElement>('#card-name-c1')!,
     day: () => host.querySelector('select[aria-label="Ends on for Amex"]') as unknown as HTMLSelectElement,
     dialog: () => host.querySelector<HTMLDialogElement>('dialog'),
@@ -200,4 +209,50 @@ await check('duplicate category opens a dialog, saves nothing, and returns focus
   assert(!view.dialog(), 'OK did not close');
   assert(document.activeElement === input, `Focus went to ${document.activeElement?.tagName}`);
 });
+const tom: Member = { id: 'm3', displayName: 'Tom', role: 'member', sortOrder: 2, archivedAt: null, sittingOutAt: null };
+const groupName = (view: ReturnType<typeof mount>) => view.host.querySelector<HTMLInputElement>('#group-name');
+const openGroupDelete = async (view: ReturnType<typeof mount>) => {
+  view.click(view.button('Delete group')); await flush();
+  assert(view.dialog()?.open && view.dialog()!.textContent!.includes('Delete Ours?'), 'Delete group card did not open');
+  return view.dialog()!.querySelector<HTMLInputElement>('input')!;
+};
+await check('renames the group on blur', async (view) => {
+  const input = groupName(view)!;
+  assert(input, 'Group name field missing');
+  view.set(input, 'New name');
+  flushSync(() => input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))); await flush(); await flush();
+  assert(JSON.stringify(view.households) === '[{"name":"New name"}]', `Wrong patch ${JSON.stringify(view.households)}`);
+  assert(view.groupsChanged() === 1, 'Group list not reloaded');
+});
+await check('delete stays disabled until the name matches', async (view) => {
+  const confirm = await openGroupDelete(view);
+  assert(view.dialog()!.textContent!.includes('This erases every expense, Pending item, cycle, member, card, category and reminder tick in this group, for everyone. This cannot be undone.'), 'Warning missing');
+  assert(view.dialog()!.textContent!.includes('Type Ours to confirm'), 'Confirm label missing');
+  assert(view.dialogButton('Delete group')?.disabled, 'Enabled before typing');
+  view.set(confirm, 'Our');
+  assert(view.dialogButton('Delete group')?.disabled, 'Enabled for a partial name');
+  view.set(confirm, ' Ours ');
+  assert(!view.dialogButton('Delete group')?.disabled, 'Disabled for the matching name');
+  view.click(view.dialogButton('Cancel')); await flush();
+  assert(!view.dialog() && view.groupDeletes() === 0, 'Cancel deleted');
+});
+await check('delete names the people who lose access', async (view) => {
+  await openGroupDelete(view);
+  assert(view.dialog()!.textContent!.includes('Hugo and Tom will lose access.'), `Wrong text ${view.dialog()!.textContent}`);
+  assert(!view.dialog()!.textContent!.includes('Alex'), 'Named the caller');
+}, { members: [...members, hugo, tom] });
+await check('delete card cannot be dismissed while deleting', async (view) => {
+  view.set(await openGroupDelete(view), 'Ours');
+  view.click(view.dialogButton('Delete group')); await flush();
+  assert(view.groupDeletes() === 1, 'Delete not sent once');
+  flushSync(() => view.dialog()!.dispatchEvent(new Event('cancel', { cancelable: true })));
+  assert(view.dialog()?.open, 'Dismissed while deleting');
+  view.finishGroupDelete(); await flush(); await flush();
+  assert(JSON.stringify(view.deletedGroups) === '["Ours"]', `Wrong onGroupDeleted ${JSON.stringify(view.deletedGroups)}`);
+});
+await check('a member sees the group name read-only and no delete button', async (view) => {
+  assert(!groupName(view), 'Member got an editable name');
+  assert(view.host.textContent!.includes('Ours'), 'Group name not shown');
+  assert(!view.button('Delete group'), 'Member sees Delete group');
+}, { role: 'member' });
 document.querySelector('[role="status"]')!.textContent = `${results.filter((r) => r.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;

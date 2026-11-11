@@ -8,6 +8,7 @@ import { permissionsFor, type Role } from '../lib/permissions';
 import { isDemoMode } from '../lib/demo-mode';
 import { useReorder } from './useReorder';
 import { ModalCard, secondaryButton } from './ModalCard';
+import DeleteGroupCard from './DeleteGroupCard';
 
 interface Props {
   members: Member[];
@@ -15,6 +16,10 @@ interface Props {
   customCategories: string[];
   rentReminder: boolean;
   role: Role;
+  groupName: string;
+  myMemberId: string;
+  onGroupsChanged: () => Promise<void>;
+  onGroupDeleted: (name: string) => void;
   onBack: () => void;
   onChanged: () => Promise<void>;
   showToast: (message: string, type?: 'error' | 'success') => void;
@@ -22,7 +27,7 @@ interface Props {
 
 const gripButton = 'inline-flex h-7 w-7 pointer-coarse:h-11 pointer-coarse:w-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing';
 
-const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentReminder, role, onBack, onChanged, showToast }) => {
+const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentReminder, role, groupName, myMemberId, onGroupsChanged, onGroupDeleted, onBack, onChanged, showToast }) => {
   const perms = permissionsFor(role);
   const [newCategory, setNewCategory] = useState('');
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
@@ -37,6 +42,8 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentR
   const [cardDelete, setCardDelete] = useState<{ card: Card; opener: HTMLElement | null; deleting: boolean } | null>(null);
   const [memberRemove, setMemberRemove] = useState<{ member: Member; opener: HTMLElement | null; removing: boolean } | null>(null);
   const [duplicateCategory, setDuplicateCategory] = useState<string | null>(null);
+  const [groupDraft, setGroupDraft] = useState<string | null>(null);
+  const [groupDeleteOpen, setGroupDeleteOpen] = useState(false);
   const cardDialog = useRef<HTMLDialogElement>(null);
   const cardTrigger = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -78,6 +85,16 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentR
     setMemberRemove({ ...memberRemove, removing: true });
     await withErrorToast(() => api.deleteMember(memberRemove.member.id), 'Could not remove that member.');
     setMemberRemove(null);
+  };
+
+  // The draft stays until the refresh lands, so the field never flashes the old name.
+  const renameGroup = () => {
+    const name = groupDraft?.trim();
+    if (!name || name === groupName) { setGroupDraft(null); return; }
+    void withErrorToast(
+      () => api.updateHousehold({ name }).then(() => onGroupsChanged()),
+      'Could not rename this group.',
+    ).then(() => setGroupDraft(null));
   };
 
   const renameMember = (member: Member, displayName: string) => {
@@ -279,6 +296,16 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentR
         </ModalCard>
       )}
 
+      {groupDeleteOpen && (
+        <DeleteGroupCard
+          groupName={groupName}
+          people={activeMembers.filter((m) => m.id !== myMemberId).map((m) => m.displayName)}
+          onClose={() => setGroupDeleteOpen(false)}
+          onDeleted={() => { setGroupDeleteOpen(false); onGroupDeleted(groupName); }}
+          restoreFocus={() => document.getElementById('delete-group')}
+        />
+      )}
+
       {duplicateCategory && (
         <ModalCard
           title="Category already exists"
@@ -293,6 +320,40 @@ const SettingsPage: React.FC<Props> = ({ members, cards, customCategories, rentR
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
         <div className="space-y-8">
+          <section className="space-y-4">
+            <h3 className="text-heading2 text-slate-800">Group</h3>
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+              {role === 'owner' ? (
+                <div className="space-y-1">
+                  <label htmlFor="group-name" className="block text-body2 font-semibold text-slate-600">Group name</label>
+                  <input
+                    id="group-name"
+                    maxLength={80}
+                    value={groupDraft ?? groupName}
+                    onChange={(e) => setGroupDraft(e.target.value)}
+                    onBlur={renameGroup}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-body1 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-body2 font-semibold text-slate-600">Group name</p>
+                  <p className="text-body1 text-slate-800">{groupName}</p>
+                </div>
+              )}
+              {role === 'owner' && (
+                <button
+                  type="button"
+                  id="delete-group"
+                  onClick={() => setGroupDeleteOpen(true)}
+                  className="min-h-9 pointer-coarse:min-h-11 rounded-lg px-3 py-1.5 -ml-3 text-body1 font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Delete group
+                </button>
+              )}
+            </div>
+          </section>
+
           {/* Member Profiles Section */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
