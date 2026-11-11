@@ -83,12 +83,18 @@ await check('focus inside pauses the timer', async (view) => {
   await wait(1000);
   assert(!view.card(), 'Still shown 4.5 seconds after focus left');
 });
+await check('hover ending keeps the pause while focus is inside', async (view) => {
+  view.show('Saved.', 'success');
+  flushSync(() => view.close()!.focus());
+  view.hover();
+  view.leave();
+  await wait(TOAST_MS.success + 500);
+  assert(view.shown('Saved.'), 'Pointer leaving closed the toast while focus was inside');
+});
 await check('a new toast restarts the timer', async (view) => {
   view.show('First.', 'success');
   await wait(3000);
-  view.hover();
   view.show('Second.', 'success');
-  view.leave();
   await wait(3000);
   assert(view.shown('Second.'), 'New toast closed on the old timer');
   await wait(1500);
