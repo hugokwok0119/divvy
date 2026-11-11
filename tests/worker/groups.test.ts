@@ -3,7 +3,10 @@ import { env } from 'cloudflare:test';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq } from 'drizzle-orm';
 import { serializeSignedCookie } from 'better-call';
-import { households, householdMembers, memberAccounts, queueItems } from '../../worker/db/schema';
+import {
+  aiUsage, cards, categoryPreferences, cycles, expenseHistory, households, householdMembers, memberAccounts, queueItems,
+  reminderCompletions, transactions,
+} from '../../worker/db/schema';
 import { createAuth } from '../../worker/auth';
 import workerApp, { type Env } from '../../worker/index';
 
@@ -32,7 +35,10 @@ const call = (cookie: string | null, method = 'GET', body?: unknown) => workerAp
 const queued = (id: string, householdId: string) => ({ id, householdId, expenseId: id, store: 'Uber', source: 'manual', createdAt: 0 });
 
 beforeEach(async () => {
-  for (const t of ['queue_items', 'member_accounts', 'household_members', 'households', 'session', 'user']) {
+  for (const t of [
+    'transactions', 'cards', 'cycles', 'expense_history', 'category_preferences', 'reminder_completions', 'ai_usage',
+    'queue_items', 'member_accounts', 'household_members', 'households', 'session', 'user',
+  ]) {
     await env.DB.exec(`DELETE FROM ${t}`);
   }
   await db().insert(households).values([
@@ -140,5 +146,61 @@ describe('/api/groups without a session', () => {
   it('needs a session', async () => {
     expect((await call(null)).status).toBe(401);
     expect((await call(null, 'POST', { name: 'Trip', currencyCode: 'USD', timezone: 'UTC' })).status).toBe(401);
+  });
+});
+
+describe('DELETE /api/household', () => {
+  const erase = (cookie: string, group: string) => workerApp.request('http://localhost/api/household', {
+    method: 'DELETE', headers: { Cookie: cookie, 'x-divvy-group': group },
+  }, testEnv);
+
+  it('erases the group and every row that references it', async () => {
+    await db().insert(cards).values({ id: 'card1', householdId: 'h1', memberId: 'm1', name: 'Visa' });
+    await db().insert(cycles).values({ id: 'c1', householdId: 'h1', closedAt: 1 });
+    // Points at h1's cycle, card and members, so the set null and no action keys run inside the cascade too.
+    await db().insert(transactions).values({
+      id: 't1', expenseId: 'e1', householdId: 'h1', cycleId: 'c1', cardId: 'card1', payerId: 'm2', date: '2026-11-01',
+      store: 'Uber', amountCents: 1200, category: 'Transport', splitType: 'equal', splitSharesJson: '{}', createdAt: 0, updatedAt: 0,
+    });
+    await db().insert(expenseHistory).values({ id: 'eh1', householdId: 'h1', expenseId: 'e1', revision: 1, eventType: 'created', timestamp: 0, afterJson: '{}' });
+    await db().insert(categoryPreferences).values({ householdId: 'h1', storeKey: 'uber', category: 'Transport', updatedAt: 0 });
+    await db().insert(reminderCompletions).values({ householdId: 'h1', month: '2026-11', reminderId: 'rent', completedAt: 0 });
+    await db().insert(aiUsage).values({ householdId: 'h1', usageDate: '2026-11-11', requestCount: 3 });
+    const cookie = await signInAs('u1', 'owner@example.com');
+
+    const res = await erase(cookie, 'h1');
+    expect(res.status).toBe(204);
+
+    for (const table of [cards, cycles, transactions, queueItems, expenseHistory, categoryPreferences, reminderCompletions, householdMembers, memberAccounts]) {
+      expect(await db().select().from(table).where(eq(table.householdId, 'h1'))).toHaveLength(0);
+    }
+    expect(await db().select().from(households).where(eq(households.id, 'h1'))).toHaveLength(0);
+    // ai_usage has no foreign key, by design: its counters stay.
+    expect(await db().select().from(aiUsage).where(eq(aiUsage.householdId, 'h1'))).toHaveLength(1);
+    const listed = await (await call(cookie)).json() as { groups: Array<{ id: string }> };
+    expect(listed.groups.map((g) => g.id)).toEqual(['h2']);
+  });
+
+  it('refuses to delete the caller\'s only group', async () => {
+    await db().delete(memberAccounts).where(eq(memberAccounts.memberId, 'm9'));
+    const res = await erase(await signInAs('u1', 'owner@example.com'), 'h1');
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'Create another group before deleting your only group' });
+    expect(await db().select().from(households).where(eq(households.id, 'h1'))).toHaveLength(1);
+  });
+
+  it('lets only the owner delete a group', async () => {
+    // u1 is a plain member of h2.
+    const res = await erase(await signInAs('u1', 'owner@example.com'), 'h2');
+    expect(res.status).toBe(403);
+    expect(await db().select().from(households).where(eq(households.id, 'h2'))).toHaveLength(1);
+  });
+
+  it('a deleted group can no longer be opened', async () => {
+    const cookie = await signInAs('u1', 'owner@example.com');
+    expect((await erase(cookie, 'h1')).status).toBe(204);
+    const res = await workerApp.request('http://localhost/api/bootstrap', { headers: { Cookie: cookie, 'x-divvy-group': 'h1' } }, testEnv);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'No household membership' });
   });
 });

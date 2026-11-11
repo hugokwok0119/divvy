@@ -1253,6 +1253,11 @@ export class ScopedRepository {
     return this.household();
   }
 
+  /** Every table that references the household goes with it through ON DELETE cascade; ai_usage has no key and stays. */
+  async deleteHousehold(): Promise<void> {
+    await this.db.delete(households).where(eq(households.id, this.householdId));
+  }
+
   /**
    * Returns false when the household, or the app as a whole, is over its daily
    * AI-usage allowance. Every group shares one free-tier Gemini key, so the
