@@ -314,6 +314,8 @@ const App: React.FC = () => {
   };
   const groupDeleted = (name: string) => {
     const remaining = groupList?.groups.filter((g) => g.id !== currentGroupId()) ?? [];
+    // A reload already in flight may still list the deleted group; drop its answer.
+    groupsRequest.current++;
     setGroupList((list) => list && { ...list, groups: remaining });
     setCurrentGroup(null);
     setCurrentView('dashboard');
