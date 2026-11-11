@@ -5,7 +5,7 @@ import { Settings, History, LogOut, RotateCcw, TrendingUp } from 'lucide-react';
 import { signOut, useSession } from './lib/auth-client';
 import { api, ApiError, currentGroupId, setCurrentGroup } from './lib/api';
 import { pendingSectionIds, pickGroup } from './lib/groups';
-import { computeSettlement } from './lib/settlement';
+import { activeRosterOf, computeSettlement } from './lib/settlement';
 import { formatCentsWithSymbol, cycleGroupsOf, cycleName } from './lib/money';
 import { generateId, CATEGORIES, categoryOptions } from './constants';
 import type { Bootstrap, GroupSummary, Member, TxPatch, QueueItem, QueueItemInput, Settlement, Transaction } from './types';
@@ -142,7 +142,7 @@ const App: React.FC = () => {
   const closeHasSaves = closeRows.some((tx) => ledgerDraftState.busyIds.includes(tx.id));
   const closeSettlement = useMemo(() => {
     try {
-      return computeSettlement(closeRows.map((tx) => ({ payerId: tx.payerId, amountCents: tx.amountCents, shares: JSON.parse(tx.splitSharesJson) })), data?.members.map((m) => m.id) ?? []);
+      return computeSettlement(closeRows.map((tx) => ({ payerId: tx.payerId, amountCents: tx.amountCents, shares: JSON.parse(tx.splitSharesJson) })), activeRosterOf(data?.members ?? []));
     } catch { return null; }
   }, [closeRows, data?.members]);
   const closeBlocked = closeHasDrafts || closeHasSaves || !closeRows.length || !closeSettlement;
@@ -177,7 +177,7 @@ const App: React.FC = () => {
   // filter view: filters only decide what a "Close Cycle" click would claim.
   const settlement: Settlement = useMemo(() => {
     if (!data) return { balances: {}, transfers: [] };
-    const roster = data.members.filter((m) => !m.archivedAt).map((m) => m.id);
+    const roster = activeRosterOf(data.members);
     try {
       return computeSettlement(
         data.transactions.map((t) => ({
