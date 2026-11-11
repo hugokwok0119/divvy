@@ -187,7 +187,7 @@ export function buildDemoData(samples: SampleResult[]): DemoState {
 
   const card = (id: string, memberId: string, sortOrder: number, statementDay: number): Card => ({
     id, memberId, name: CARD_NAMES[id], archived: 0, sortOrder, statementDay,
-    historyName: null, historyStatementDay: null, historyAppliedAt: null,
+    historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1,
   });
 
   return {

@@ -33,6 +33,11 @@ describe('monthReminders', () => {
     expect(reminders.map((r) => r.id)).toEqual(['card:c1', 'rent']);
     expect(reminders[0].label).toBe('Renamed statement');
   });
+
+  it('skips a card whose reminder is off', () => {
+    const reminders = monthReminders(2026, 10, [{ ...card('c1', 'Amex', 15), reminder: 0 }, { ...card('c2', 'Visa', 15), reminder: 1 }]);
+    expect(reminders.map((r) => r.id)).toEqual(['card:c2', 'rent']);
+  });
 });
 
 describe('todayIn', () => {

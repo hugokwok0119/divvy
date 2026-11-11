@@ -57,7 +57,7 @@ function Fixture({ readOnly = false, refund = false, five = false, edited = fals
   const roster = five ? [...members, ...['Taylor', 'Morgan', 'Robin'].map((displayName, index) => ({ ...members[1], id: `m${index + 3}`, displayName, sortOrder: index + 2 }))] : members;
   return <TransactionList mode={stage} readOnly={readOnly} members={roster}
     transactions={[demo ? demoTransaction : { ...transaction, amountCents, lastEditedAt: edited ? 1760000000000 : null }]} pendingItems={[demo ? demoQueue : { ...queued, amountCents, isDuplicate: duplicate ? 1 : 0, lastEditedAt: edited ? 1760000000000 : null }]}
-    cards={[{ id: 'c1', memberId: 'm1', name: 'Visa with a long card name', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null }]}
+    cards={[{ id: 'c1', memberId: 'm1', name: 'Visa with a long card name', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 }]}
     categories={['Groceries', 'Utilities with a long category label']}
     filterDateStart={filters[0]} setFilterDateStart={setter(0)} filterDateEnd={filters[1]} setFilterDateEnd={setter(1)}
     filterCategory={filters[2]} setFilterCategory={setter(2)} filterPayerId={filters[3]} setFilterPayerId={setter(3)}

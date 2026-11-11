@@ -8,7 +8,7 @@ import '../../src/index.css';
 
 // Serve with npm run dev, then open /tests/browser/settingsCards.html.
 const members: Member[] = [{ id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null }];
-const card: Card = { id: 'c1', memberId: 'm1', name: 'Amex', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null };
+const card: Card = { id: 'c1', memberId: 'm1', name: 'Amex', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 };
 const assert = (value: unknown, message: string) => { if (!value) throw new Error(message); };
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const results: string[] = [];
