@@ -89,7 +89,7 @@ const initial: Bootstrap = {
       sittingOutAt: null,
     },
   ],
-  cards: [{ id: 'c1', memberId: 'm1', name: 'Visa', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null }],
+  cards: [{ id: 'c1', memberId: 'm1', name: 'Visa', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 }],
   queue: [pending],
   transactions: [approved],
   cycles: [],

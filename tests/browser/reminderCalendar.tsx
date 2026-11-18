@@ -10,7 +10,7 @@ import '../../src/index.css';
 // Serve with npm run dev, then open /tests/browser/reminderCalendar.html.
 const TZ = 'UTC';
 const members: Member[] = [{ id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null }];
-const cards: Card[] = [{ id: 'c1', memberId: 'm1', name: 'Amex', archived: 0, sortOrder: 0, statementDay: 15, historyName: null, historyStatementDay: null, historyAppliedAt: null }];
+const cards: Card[] = [{ id: 'c1', memberId: 'm1', name: 'Amex', archived: 0, sortOrder: 0, statementDay: 15, historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 }];
 const current = todayIn(TZ).slice(0, 7);
 const back1 = shiftMonth(current, -1);
 const back2 = shiftMonth(current, -2);

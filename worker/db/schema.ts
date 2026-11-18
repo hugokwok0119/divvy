@@ -44,6 +44,8 @@ export const cards = sqliteTable('cards', {
   historyName: text('history_name'),
   historyStatementDay: integer('history_statement_day'),
   historyAppliedAt: integer('history_applied_at'),
+  // 1 shows this card's statement reminder on the calendar; 0 hides it and keeps its stored ticks.
+  reminder: integer('reminder').notNull().default(1),
 }, (t) => [index('cards_household_idx').on(t.householdId)]);
 
 export const cycles = sqliteTable('cycles', {

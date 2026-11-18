@@ -279,3 +279,11 @@ Each entry gives the date, the decision and the reason.
     and fix than a lost row. Rejected: a server route that moves rows in one transaction, which
     would need one repository to write to two groups, and a Pending view per group, which makes
     the person switch groups to split one import.
+23. **2026-11-11. Each card has its own reminder switch.** `cards.reminder` is 1 when the card's
+    statement reminder shows on the calendar and 0 when it is hidden. It defaults to 1, so existing
+    cards keep their reminders after the migration. Turning a reminder off only hides it; ticks stay
+    stored in `reminder_completions`, so turning it back on shows the month as it was. The owner
+    changes it with `PUT /api/cards/:id/reminder` instead of `PATCH /api/cards/:id`, because the card
+    save inserts a full row and a partial body would fail its checks. A reminder is only a calendar
+    entry; nothing is emailed or pushed. Rejected: a per-person setting, which needs a new table keyed
+    by member and card and still gives one shared calendar two different views of the same group.

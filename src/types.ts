@@ -25,6 +25,8 @@ export interface Card {
   historyStatementDay: number | null;
   /** Retrospective values apply only to cycles closed at or before this time (see closedCycleCard). */
   historyAppliedAt: number | null;
+  /** 1 shows this card's statement reminder on the calendar; 0 hides it. */
+  reminder: number;
 }
 
 /** A manual calendar tick, keyed by household, month and reminder identity (`card:<cardId>` or `rent`). */

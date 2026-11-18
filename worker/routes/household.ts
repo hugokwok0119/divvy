@@ -98,6 +98,16 @@ cardRoutes.patch('/:id', async (c) => {
   return c.json(await scope.repo.upsertCard({ ...value, id: c.req.param('id') } as never));
 });
 
+cardRoutes.put('/:id/reminder', async (c) => {
+  const scope = await requireScope(c);
+  requireOwner(scope);
+  const body = await c.req.json().catch(() => null);
+  if (typeof body?.reminder !== 'boolean') {
+    return c.json({ error: 'Invalid reminder', fields: { reminder: 'Expected true or false' } }, 400);
+  }
+  return c.json(await scope.repo.setCardReminder(c.req.param('id'), body.reminder));
+});
+
 cardRoutes.delete('/:id', async (c) => {
   const scope = await requireScope(c);
   requireOwner(scope);

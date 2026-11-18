@@ -124,7 +124,7 @@ describe('cycleGroupLabel', () => {
   ];
   const card = (over: Partial<Card>): Card => ({
     id: 'c1', memberId: 'm1', name: 'Visa Infinite', archived: 0, sortOrder: 0, statementDay: 20,
-    historyName: null, historyStatementDay: null, historyAppliedAt: null, ...over,
+    historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1, ...over,
   });
   const group = (over: Partial<CycleGroup>): CycleGroup => ({
     payerId: 'm1', cardId: 'c1', cardNameSnapshot: 'Visa', dateStart: '2026-09-16', dateEnd: '2026-10-15', count: 3, ...over,

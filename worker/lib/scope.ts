@@ -1178,6 +1178,14 @@ export class ScopedRepository {
     return rows[0];
   }
 
+  /** Turns one card's calendar reminder on or off; stored ticks stay either way. */
+  async setCardReminder(id: string, on: boolean) {
+    const [row] = await this.db.update(cards).set({ reminder: on ? 1 : 0 })
+      .where(and(eq(cards.id, id), eq(cards.householdId, this.householdId))).returning();
+    if (!row) throw new HTTPException(404, { message: 'Card not found' });
+    return row;
+  }
+
   /** Closed cycles and expenses whose displayed card label or statement day a retrospective save would change. */
   async cardHistoryScope(input: { id: string; name: string; statementDay?: number | null }) {
     const card = (await this.cards()).find((c) => c.id === input.id);
