@@ -1,0 +1,1 @@
+ALTER TABLE `households` ADD `roster_confirmed_at` integer;

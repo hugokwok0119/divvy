@@ -2,7 +2,7 @@
 import { Hono, type Context } from 'hono';
 import { requireScope, requireOwner } from '../lib/scope';
 import { listGroups } from '../lib/groups';
-import { validateHouseholdPatch, validateMemberInput, validateCardInput, validateReminderInput, validateOrderInput, REMINDER_MONTH } from '../lib/validate';
+import { validateHouseholdPatch, validateMemberInput, validateCardInput, validateReminderInput, validateOrderInput, validateRosterInput, REMINDER_MONTH } from '../lib/validate';
 import type { Env } from '../index';
 
 export const householdRoutes = new Hono<{ Bindings: Env }>();
@@ -49,22 +49,20 @@ memberRoutes.post('/', async (c) => {
 
 memberRoutes.put('/order', (c) => reorder(c, 'members'));
 
+memberRoutes.put('/roster', async (c) => {
+  const scope = await requireScope(c);
+  requireOwner(scope);
+  const { value, fields } = validateRosterInput(await c.req.json().catch(() => null));
+  if (!value) return c.json({ error: 'Invalid roster', fields }, 400);
+  return c.json(await scope.repo.setRoster(value.in));
+});
+
 memberRoutes.patch('/:id', async (c) => {
   const scope = await requireScope(c);
   requireOwner(scope);
   const { value, fields } = validateMemberInput(await c.req.json().catch(() => null), { requireId: false });
   if (!value) return c.json({ error: 'Invalid member', fields }, 400);
   return c.json(await scope.repo.upsertMember({ ...value, id: c.req.param('id') } as never));
-});
-
-memberRoutes.put('/:id/sitting-out', async (c) => {
-  const scope = await requireScope(c);
-  requireOwner(scope);
-  const body = await c.req.json().catch(() => null);
-  if (typeof body?.sittingOut !== 'boolean') {
-    return c.json({ error: 'Invalid sitting out', fields: { sittingOut: 'Expected a boolean' } }, 400);
-  }
-  return c.json(await scope.repo.setSittingOut(c.req.param('id'), body.sittingOut));
 });
 
 memberRoutes.delete('/:id', async (c) => {

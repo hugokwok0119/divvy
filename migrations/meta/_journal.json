@@ -78,6 +78,13 @@
       "when": 1794441233046,
       "tag": "0011_card_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795047684017,
+      "tag": "0012_cycle_roster",
+      "breakpoints": true
     }
   ]
 }

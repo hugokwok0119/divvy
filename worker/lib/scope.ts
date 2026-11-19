@@ -1096,6 +1096,8 @@ export class ScopedRepository {
       displayName: input.displayName,
       sortOrder: input.sortOrder ?? 0,
       role: input.role ?? 'member',
+      // Joining mid-cycle never re-splits existing rows: a late member waits until the next cycle.
+      sittingOutAt: (await this.cycleHasRows()) ? Date.now() : null,
       createdAt: Date.now(),
     }).onConflictDoUpdate({
       target: householdMembers.id,
@@ -1110,15 +1112,7 @@ export class ScopedRepository {
 
   /** Participants in history are archived, never deleted. */
   async archiveMember(id: string): Promise<void> {
-    const pending = await this.db.select({ id: queueTable.id }).from(queueTable).where(and(
-      eq(queueTable.householdId, this.householdId),
-      eq(queueTable.payerId, id),
-    ));
-    if (pending.length > 0) {
-      throw new HTTPException(409, {
-        message: 'Resolve this participant\'s queued items before archiving them',
-      });
-    }
+    if (await this.cycleHasRows()) throw new HTTPException(409, { message: 'Close the cycle before removing a member' });
     const member = and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId));
     const [row] = await this.db.select({ role: householdMembers.role }).from(householdMembers).where(member).limit(1);
     if (!row) throw new HTTPException(404, { message: 'Member not found' });
@@ -1134,17 +1128,41 @@ export class ScopedRepository {
     ]);
   }
 
-  /** Sitting out leaves a member out of new equal splits; existing shares never change. */
-  async setSittingOut(id: string, sittingOut: boolean): Promise<PublicMember> {
-    const members = await this.members();
-    if (!members.some((m) => m.id === id && m.archivedAt === null)) throw new HTTPException(404, { message: 'Member not found' });
-    // shortcut: concurrent toggles can leave nobody in; if more than one person can toggle, use a conditional UPDATE and decide 409 by re-reading the row, not meta.changes.
-    if (sittingOut && splitRosterOf(members).every((other) => other === id)) {
-      throw new HTTPException(409, { message: 'At least one member must stay in' });
-    }
-    await this.db.update(householdMembers).set({ sittingOutAt: sittingOut ? Date.now() : null })
-      .where(and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId)));
-    return (await this.publicMembers()).find((m) => m.id === id)!;
+  /** True while the open cycle has a Pending row or an Approved expense, the rows bootstrap returns. */
+  async cycleHasRows(): Promise<boolean> {
+    const [row] = await this.db.select({ empty: sql<number>`${this.cycleIsEmpty()}` }).from(households)
+      .where(eq(households.id, this.householdId)).limit(1);
+    return row?.empty !== 1;
+  }
+
+  private cycleIsEmpty() {
+    return sql`not exists (select 1 from ${queueTable} where ${queueTable.householdId} = ${this.householdId})
+      and not exists (select 1 from ${transactions} where ${transactions.householdId} = ${this.householdId}
+        and ${transactions.cycleId} is null and ${transactions.deletedAt} is null)`;
+  }
+
+  /**
+   * Saves who is in for the open cycle. Locked once the cycle has any row, so no expense is ever re-split.
+   * Members already out keep their original sittingOutAt.
+   */
+  async setRoster(inIds: string[]): Promise<PublicMember[]> {
+    const active = (await this.members()).filter((m) => m.archivedAt === null).map((m) => m.id);
+    if (!inIds.every((id) => active.includes(id))) throw new HTTPException(400, { message: 'Unknown or removed member' });
+    const locked = () => new HTTPException(409, { message: 'Who is in is locked while this cycle has expenses' });
+    if (await this.cycleHasRows()) throw locked();
+    const now = Date.now();
+    const isIn = sql`${householdMembers.id} in (select value from json_each(${JSON.stringify(inIds)}))`;
+    // Both writes re-check the cycle inside the batch transaction, so an expense saved meanwhile cancels them.
+    await this.db.batch([
+      this.db.update(householdMembers)
+        .set({ sittingOutAt: sql`case when ${isIn} then null else coalesce(${householdMembers.sittingOutAt}, ${now}) end` })
+        .where(and(eq(householdMembers.householdId, this.householdId), isNull(householdMembers.archivedAt), this.cycleIsEmpty())),
+      this.db.update(households).set({ rosterConfirmedAt: now })
+        .where(and(eq(households.id, this.householdId), this.cycleIsEmpty())),
+    ]);
+    // Decide by the stamp, not meta.changes: D1 counts trigger rows in changes.
+    if ((await this.household()).rosterConfirmedAt !== now) throw locked();
+    return this.publicMembers();
   }
 
   async upsertCard(input: {

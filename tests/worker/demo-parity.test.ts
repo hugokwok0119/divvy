@@ -44,7 +44,7 @@ function demoServer() {
   const h = fixture.household;
   const bootstrap: Bootstrap = {
     me: { memberId: 'm1', role: 'owner' },
-    household: { id: h.id, name: h.name, currencyCode: h.currencyCode, timezone: h.timezone, customCategories: [], currentCycleName: null, rentReminder: true },
+    household: { id: h.id, name: h.name, currencyCode: h.currencyCode, timezone: h.timezone, customCategories: [], currentCycleName: null, rentReminder: true, rosterConfirmedAt: null },
     members: fixture.members.map(({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) =>
       ({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) as Member),
     cards: fixture.cards.map((card) => ({ ...card }) as Card),

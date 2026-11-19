@@ -70,6 +70,7 @@ const initial: Bootstrap = {
     customCategories: [],
     currentCycleName: null,
     rentReminder: true,
+    rosterConfirmedAt: null,
   },
   members: [
     {

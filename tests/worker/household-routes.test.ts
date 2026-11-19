@@ -44,12 +44,12 @@ describe('archiveMember', () => {
     expect(await repo().roster()).toEqual(['m2']);
   });
 
-  it('refuses while the member has unresolved queue items', async () => {
+  it('refuses while the open cycle has a Pending row', async () => {
     await repo().insertQueueItem({
       id: 'q1', date: null, store: 'Uber', amountCents: null, category: null,
       payerId: 'm1', cardId: null, splitType: null, source: 'manual',
     });
-    await expect(repo().archiveMember('m1')).rejects.toThrow(/queued/i);
+    await expect(repo().archiveMember('m1')).rejects.toThrow(/Close the cycle before removing a member/);
   });
 });
 
@@ -64,13 +64,14 @@ describe('DELETE /api/members/:id', () => {
       id: 't1', date: '2024-06-09', store: 'Uber', amountCents: 300, category: 'Transport',
       payerId: 'm3', cardId: 'c3', splitType: 'equal', splitRule: null,
     });
+    await owner.closeCycle('cy1', ['t1'], { t1: 1 });
 
     const res = await workerApp.request('http://localhost/api/members/m3', { method: 'DELETE', headers: { Cookie: cookie } }, testEnv);
 
     expect(res.status).toBe(204);
     expect((await repo().members()).find((m) => m.id === 'm3')?.archivedAt).toBeTypeOf('number');
     expect((await repo().cards()).find((c) => c.id === 'c3')?.archived).toBe(1);
-    expect((await repo().activeTransactions()).map((t) => [t.payerId, t.cardNameSnapshot])).toEqual([['m3', 'Visa']]);
+    expect((await repo().archivedTransactions()).map((t) => [t.payerId, t.cardNameSnapshot])).toEqual([['m3', 'Visa']]);
   });
 
   it('refuses to archive the owner', async () => {
