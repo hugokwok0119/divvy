@@ -1085,7 +1085,9 @@ await check('hides split buttons for members who sit out', async v => {
   await v.click('Approved (1)');
   assert(v.buttons('Assign Cafe to Alex').length && v.buttons('Assign Cafe to Sam').length, 'Members who are in lost their split buttons');
   assert(!v.buttons('Assign Cafe to Morgan').length, 'Member who sits out has a split button');
-  assert(v.host.querySelector('.ledger-equal')?.getAttribute('title') === 'Equally among Alex and Sam', 'Equal button must name the shares');
+  const equal = v.host.querySelector('.ledger-equal')!;
+  assert(equal.getAttribute('title') === 'Equally among Alex and Sam', 'Equal title must name who is in');
+  assert(equal.getAttribute('aria-label') === 'Split Cafe equally among Alex and Sam', 'Equal label must name the row and who is in');
   v.change('Payer', 'm3');
   assert(v.field('Payer').value === 'm3', 'Member who sits out must stay a payer');
 }, { sitOut: true });

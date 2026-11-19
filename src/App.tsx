@@ -433,26 +433,28 @@ const App: React.FC = () => {
           {/* Below sm the group name needs the room; the heading stays for screen readers. */}
           <h1 className="sr-only sm:not-sr-only font-bold text-heading1 text-slate-800 tracking-tight">Divvy</h1>
         </button>
-        <div className="ml-2 mr-auto flex min-w-0 items-center gap-2 pr-2">
+        {/* Below sm every control is an icon so the group name keeps its room at 375px. */}
+        <div className="ml-1 sm:ml-2 mr-auto flex min-w-0 items-center gap-1 sm:gap-2 pr-1 sm:pr-2">
           {switcher}
           <button
             id="members-button"
             type="button"
+            aria-label="Members"
             aria-haspopup="dialog"
             onClick={() => setMembersOpen(true)}
-            className="flex shrink-0 items-center gap-2 px-3 py-2 pointer-coarse:min-h-11 rounded-lg font-medium text-body1 text-slate-600 hover:bg-slate-100 transition-colors"
+            className="flex shrink-0 items-center justify-center gap-2 px-2 sm:px-3 py-2 pointer-coarse:min-h-11 pointer-coarse:min-w-11 rounded-lg font-medium text-body1 text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <Users size={18} aria-hidden="true" />
-            Members
+            <span className="hidden sm:inline" aria-hidden="true">Members</span>
           </button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
           <button
             onClick={() => setCurrentView('analytics')}
             aria-label="Analytics"
             aria-pressed={currentView === 'analytics'}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'analytics' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'analytics' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
             <TrendingUp size={18} aria-hidden="true" />
             <span className="hidden sm:inline" aria-hidden="true">Analytics</span>
@@ -461,7 +463,7 @@ const App: React.FC = () => {
             onClick={() => setCurrentView('history')}
             aria-label="History"
             aria-pressed={currentView === 'history'}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'history' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'history' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
             <History size={18} aria-hidden="true" />
             <span className="hidden sm:inline" aria-hidden="true">History</span>
@@ -469,7 +471,7 @@ const App: React.FC = () => {
           <button
             onClick={() => setCurrentView('settings')}
             aria-label="Settings"
-            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-2 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
           >
             <Settings size={18} aria-hidden="true" />
           </button>
@@ -478,10 +480,11 @@ const App: React.FC = () => {
             onClick={() => (demo ? demo.exitDemo() : void signOut())}
             aria-label={demo ? 'Exit demo' : 'Sign out'}
             title={demo ? 'Exit demo' : 'Sign out'}
-            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-2 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
           >
             <LogOut size={18} aria-hidden="true" />
-            {demo && <span aria-hidden="true">Exit demo</span>}
+            {/* Below sm the demo banner's own Exit demo button keeps the label visible. */}
+            {demo && <span className="hidden sm:inline" aria-hidden="true">Exit demo</span>}
           </button>
         </div>
       </div>
