@@ -241,7 +241,7 @@ const App: React.FC = () => {
       // an import result screen instead of assuming success.
       const result = await api.createQueueItems(items);
       if (result.summary.duplicate > 0) {
-        showToast(`Added ${result.summary.inserted} item(s) to the queue, ${result.summary.duplicate} flagged as possible duplicates.`);
+        showToast(`Added ${result.summary.inserted} item(s) to the queue, ${result.summary.duplicate} flagged as possible duplicates.`, 'success');
       }
       await refresh();
       setLedgerTab('pending');
