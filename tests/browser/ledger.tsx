@@ -107,7 +107,7 @@ async function wait(test: () => boolean, message: string) {
   }
   throw new Error(message);
 }
-async function mount(options: { member?: boolean; legacy?: boolean; settled?: boolean; allocation?: Record<string, number>; third?: boolean; archived?: boolean; pendingComplete?: boolean; returned?: boolean } = {}) {
+async function mount(options: { member?: boolean; legacy?: boolean; settled?: boolean; allocation?: Record<string, number>; third?: boolean; archived?: boolean; pendingComplete?: boolean; returned?: boolean; sitOut?: boolean } = {}) {
   let stored = structuredClone(initial);
   if (options.pendingComplete || options.returned) stored.queue[0] = { ...pending, date: approved.date, store: approved.store,
     amountCents: approved.amountCents, category: approved.category, payerId: approved.payerId, splitType: 'equal',
@@ -118,6 +118,7 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
   }
   if (options.third) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null, sittingOutAt: null });
   if (options.archived) stored.members[1].archivedAt = 1;
+  if (options.sitOut) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null, sittingOutAt: 1 });
   if (options.member) stored.me = { memberId: 'm2', role: 'member' };
   const closings: CloseCycleInput[] = [];
   let staleClose = false;
@@ -1080,6 +1081,14 @@ await check('numeric bulk custom allocation uses the same Save gate', async v =>
   await wait(() => v.saves.length === 1, 'Bulk allocation did not save');
   assert(JSON.parse(v.stored().transactions[0].splitRuleJson!).percentages.m1 === 80, 'Wrong bulk allocation');
 });
+await check('hides split buttons for members who sit out', async v => {
+  await v.click('Approved (1)');
+  assert(v.buttons('Assign Cafe to Alex').length && v.buttons('Assign Cafe to Sam').length, 'Members who are in lost their split buttons');
+  assert(!v.buttons('Assign Cafe to Morgan').length, 'Member who sits out has a split button');
+  assert(v.host.querySelector('.ledger-equal')?.getAttribute('title') === 'Equally among Alex and Sam', 'Equal button must name the shares');
+  v.change('Payer', 'm3');
+  assert(v.field('Payer').value === 'm3', 'Member who sits out must stay a payer');
+}, { sitOut: true });
 const output = `${results.filter((r) => r.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;
 document.querySelector('[role="status"]')!.textContent = output;
 if (new URLSearchParams(location.search).has('demo')) {

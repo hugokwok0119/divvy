@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Settings, History, LogOut, RotateCcw, TrendingUp } from 'lucide-react';
+import { Settings, History, LogOut, RotateCcw, TrendingUp, Users } from 'lucide-react';
 
 import { signOut, useSession } from './lib/auth-client';
 import { api, ApiError, currentGroupId, setCurrentGroup } from './lib/api';
@@ -20,7 +20,8 @@ import HistoryPage from './components/HistoryModal';
 import AnalyticsPage from './components/AnalyticsPage';
 import CycleName from './components/CycleName';
 import GroupSwitcher from './components/GroupSwitcher';
-import SplittingWith from './components/SplittingWith';
+import MembersCard from './components/MembersCard';
+import { cycleLocked, lastClosedAt, rosterNeedsConfirm } from './lib/cycleRoster';
 import { permissionsFor } from './lib/permissions';
 import NewGroupCard from './components/NewGroupCard';
 import SendToGroupCard from './components/SendToGroupCard';
@@ -302,10 +303,13 @@ const App: React.FC = () => {
 
   // --- Groups ---
   const otherPendingIds = data && groupList && ledgerTab === 'pending' ? pendingSectionIds(groupList.groups, data.household.id).slice(1) : [];
-  // The header only tells lists apart; alone it would repeat "Splitting with".
+  // The header only tells lists apart; a single list sits under the group's own header.
   const groupHeaders = otherPendingIds.length > 0;
+  // Ask the owner who is in once per group and closed cycle, so focus refreshes do not reopen it.
+  const askedFor = useRef<string | null>(null);
   const selectGroup = (id: string) => {
     setCurrentGroup(id);
+    askedFor.current = null;
     setChoosingGroup(false);
     // Filters name the old group's people and cards; a stale one would hide every row.
     setFilterDateStart(''); setFilterDateEnd(''); setFilterCategory(''); setFilterPayerId(''); setFilterCardId('');
@@ -324,6 +328,34 @@ const App: React.FC = () => {
     if (pick) selectGroup(pick);
     else { setData(null); setChoosingGroup(true); setSwitcherOpen(true); }
   };
+  const [membersOpen, setMembersOpen] = useState(false);
+  useEffect(() => {
+    if (!data || demo || !rosterNeedsConfirm(data)) return;
+    const key = `${data.household.id}:${lastClosedAt(data) ?? 'none'}`;
+    if (askedFor.current === key) return;
+    askedFor.current = key;
+    setMembersOpen(true);
+  }, [data, demo]);
+  const membersCard = membersOpen && data && (
+    <MembersCard
+      members={data.members}
+      groupName={data.household.name}
+      locked={cycleLocked(data)}
+      canEdit={!demo && permissionsFor(data.me.role).canManageMembers}
+      onSave={async (inIds) => {
+        try {
+          await api.setRoster(inIds);
+          await refresh();
+          setMembersOpen(false);
+          showToast('Saved who is in', 'success');
+        } catch (err) {
+          showToast(err instanceof ApiError ? err.message : 'Could not save who is in.', 'error');
+        }
+      }}
+      onClose={() => setMembersOpen(false)}
+      restoreFocus={() => document.getElementById('members-button')}
+    />
+  );
   const switcher = groupList && (
     <GroupSwitcher
       groups={groupList.groups}
@@ -401,7 +433,19 @@ const App: React.FC = () => {
           {/* Below sm the group name needs the room; the heading stays for screen readers. */}
           <h1 className="sr-only sm:not-sr-only font-bold text-heading1 text-slate-800 tracking-tight">Divvy</h1>
         </button>
-        <div className="ml-2 mr-auto min-w-0 pr-2">{switcher}</div>
+        <div className="ml-2 mr-auto flex min-w-0 items-center gap-2 pr-2">
+          {switcher}
+          <button
+            id="members-button"
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => setMembersOpen(true)}
+            className="flex shrink-0 items-center gap-2 px-3 py-2 pointer-coarse:min-h-11 rounded-lg font-medium text-body1 text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <Users size={18} aria-hidden="true" />
+            Members
+          </button>
+        </div>
 
         <div className="flex shrink-0 items-center gap-3">
           <button
@@ -458,6 +502,7 @@ const App: React.FC = () => {
 
       {newGroupCard}
       {sendCard}
+      {membersCard}
 
       {/* Keyed by group: every view remounts and refetches when the group changes. */}
       <main key={data.household.id} className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -509,18 +554,6 @@ const App: React.FC = () => {
                   onSave={async (name) => { await api.renameCycle('current', name); await refresh(); }}
                 />
               </div>
-              <SplittingWith
-                members={data.members}
-                canEdit={!demo && permissionsFor(data.me.role).canManageMembers}
-                onToggle={async (id, sittingOut) => {
-                  try {
-                    await api.setSittingOut(id, sittingOut);
-                    await refresh();
-                  } catch (err) {
-                    showToast(err instanceof ApiError ? err.message : 'Could not update who is splitting.', 'error');
-                  }
-                }}
-              />
               <div role="tablist" aria-label="Ledger views" className="flex gap-2 mb-4 border-b border-slate-200">
                 <button role="tab" aria-selected={ledgerTab === 'pending'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('pending')}>Pending ({data.queue.length})</button>
                 <button role="tab" aria-selected={ledgerTab === 'approved'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'approved' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('approved')}>Approved ({data.transactions.length})</button>

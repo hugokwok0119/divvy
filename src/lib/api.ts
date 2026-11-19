@@ -173,8 +173,8 @@ function makeApi(headers: () => Record<string, string>) {
     upsertMember: (input: unknown) =>
       req<unknown>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
 
-    setSittingOut: (id: string, sittingOut: boolean) =>
-      req<Member>(`/api/members/${encodeURIComponent(id)}/sitting-out`, { method: 'PUT', body: JSON.stringify({ sittingOut }) }),
+    setRoster: (inIds: string[]) =>
+      req<Member[]>('/api/members/roster', { method: 'PUT', body: JSON.stringify({ in: inIds }) }),
 
     upsertCard: (input: unknown) =>
       req<unknown>('/api/cards', { method: 'POST', body: JSON.stringify(input) }),

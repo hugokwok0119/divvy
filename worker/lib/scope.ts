@@ -1090,6 +1090,7 @@ export class ScopedRepository {
     id: string; displayName: string; sortOrder?: number; role?: 'owner' | 'member';
   }) {
     await this.assertIdFree(householdMembers, input.id, 'Member');
+    // shortcut: cycleHasRows() is read before the insert, so a member added at the same moment as the first expense can start in, upgrade if members other than the owner can archive or save the roster.
     await this.db.insert(householdMembers).values({
       id: input.id,
       householdId: this.householdId,
@@ -1112,6 +1113,7 @@ export class ScopedRepository {
 
   /** Participants in history are archived, never deleted. */
   async archiveMember(id: string): Promise<void> {
+    // shortcut: an archive racing a roster save can still leave nobody in, upgrade if members other than the owner can archive or save the roster.
     if (await this.cycleHasRows()) throw new HTTPException(409, { message: 'Close the cycle before removing a member' });
     const member = and(eq(householdMembers.id, id), eq(householdMembers.householdId, this.householdId));
     const [row] = await this.db.select({ role: householdMembers.role }).from(householdMembers).where(member).limit(1);
