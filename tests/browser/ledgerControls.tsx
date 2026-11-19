@@ -57,7 +57,7 @@ function Fixture({ readOnly = false, refund = false, five = false, edited = fals
   const roster = five ? [...members, ...['Taylor', 'Morgan', 'Robin'].map((displayName, index) => ({ ...members[1], id: `m${index + 3}`, displayName, sortOrder: index + 2 }))] : members;
   return <TransactionList mode={stage} readOnly={readOnly} members={roster}
     transactions={[demo ? demoTransaction : { ...transaction, amountCents, lastEditedAt: edited ? 1760000000000 : null }]} pendingItems={[demo ? demoQueue : { ...queued, amountCents, isDuplicate: duplicate ? 1 : 0, lastEditedAt: edited ? 1760000000000 : null }]}
-    cards={[{ id: 'c1', memberId: 'm1', name: 'Visa with a long card name', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null }]}
+    cards={[{ id: 'c1', memberId: 'm1', name: 'Visa with a long card name', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 }]}
     categories={['Groceries', 'Utilities with a long category label']}
     filterDateStart={filters[0]} setFilterDateStart={setter(0)} filterDateEnd={filters[1]} setFilterDateEnd={setter(1)}
     filterCategory={filters[2]} setFilterCategory={setter(2)} filterPayerId={filters[3]} setFilterPayerId={setter(3)}
@@ -87,6 +87,7 @@ function Fixture({ readOnly = false, refund = false, five = false, edited = fals
 }
 const root = createRoot(host);
 const field = (label: string) => (host.querySelector(`[aria-label="${label}"]`) ?? document.querySelector(`.ledger-bulk-portal [aria-label="${label}"]`)) as HTMLInputElement;
+const equalLabel = 'Split A long grocery store label equally among Alex and Sam with a long household name';
 const buttons = (label: string) => [...host.querySelectorAll('button'), ...document.querySelectorAll<HTMLButtonElement>('.ledger-bulk-portal button')].filter(button => button.getAttribute('aria-label') === label || button.textContent?.trim() === label);
 const click = async (label: string) => { const element = buttons(label)[0] ?? field(label); assert(element, `Missing ${label}`); flushSync(() => element.click()); await tick(); };
 const openTransactionBreakdown = async () => {
@@ -186,7 +187,7 @@ await check('bulk style stays dark blue with bounded single-line controls', asyn
 await check('bulk style equal and member choices update Approved drafts without saving', async () => {
   flushSync(() => mode('approved')); await tick(); await click('Select all visible expenses');
   const writesBefore = allocationWrites.length; await change('Set split for selected expenses', 'equal');
-  assert(buttons('Split A long grocery store label equally')[0].getAttribute('aria-pressed') === 'true', 'Bulk equal did not stage row allocation');
+  assert(buttons(equalLabel)[0].getAttribute('aria-pressed') === 'true', 'Bulk equal did not stage row allocation');
   await change('Set split for selected expenses', 'm2');
   assert(buttons('Assign A long grocery store label to Sam with a long household name')[0].getAttribute('aria-pressed') === 'true', 'Bulk member did not stage row allocation');
   assert(allocationWrites.length === writesBefore && buttons('Save selected').length, 'Bulk split bypassed Approved explicit Save');
@@ -308,7 +309,7 @@ await check('selected person has readable white letter and white underline', asy
 });
 await check('equal and custom selections use approved colors with white icons and underlines', async () => {
   flushSync(() => mode('approved')); await tick();
-  for (const [label, background] of [['Custom split for A long grocery store label', 'rgb(124, 58, 237)'], ['Split A long grocery store label equally', 'rgb(51, 65, 85)']]) {
+  for (const [label, background] of [['Custom split for A long grocery store label', 'rgb(124, 58, 237)'], [equalLabel, 'rgb(51, 65, 85)']]) {
     if (label.startsWith('Split')) await click(label);
     const selected = buttons(label)[0], style = getComputedStyle(selected);
     assert(style.backgroundColor === background && style.color === 'rgb(255, 255, 255)', 'Equal/custom selected icon lost its approved colors');

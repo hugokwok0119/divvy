@@ -77,10 +77,11 @@ unit-tested.
 - Splitting is exact. Shares come from integer division, and the remainder is handed out one
   cent at a time by the largest remainder method. Per-member shares always sum to the amount.
 - Split types are `equal` (across the members who are in), `custom` (percentages) and `single`
-  (one member). A member who sits out is left out of new equal splits, and a new custom split
-  starts them at 0%. Their existing shares and balance never change, and they still count in the
-  settlement. The owner toggles this with the Splitting with chips above the ledger, and at least
-  one member must stay in.
+  (one member). A member who sits out is left out of new equal splits and of the split columns,
+  and a new custom split leaves them out. Their existing shares and balance never change, and they
+  still count in the settlement. The owner chooses who is in with the Members card beside the group
+  switcher while the open cycle has no Pending or Approved rows, and at least one member must stay
+  in.
 - A member's balance is what they paid minus what they consumed, summed from the stored shares.
   Balances across the household sum to zero, and greedy matching of creditors and debtors turns
   them into a short list of transfers.
@@ -270,6 +271,9 @@ Each entry gives the date, the decision and the reason.
     The flag only changes how new equal splits spread; stored shares are never recomputed. Rejected:
     a per-cycle roster, which needs a new table and a reset step at every close, and archiving the
     member, which hides them from the payer and single-split controls.
+    Amended 2026-11-11: the flag changes only while the open cycle has no Pending or Approved rows,
+    through the Members card, and members who sit out leave the split columns but stay available as
+    payers.
 22. **2026-10-22. One Pending screen with a section per group, and Send to group in two calls.**
     The Pending tab shows the current group, then every other group with Pending rows, each with
     its own heading and people. Send to group copies the selected rows into the target group with
@@ -279,3 +283,11 @@ Each entry gives the date, the decision and the reason.
     and fix than a lost row. Rejected: a server route that moves rows in one transaction, which
     would need one repository to write to two groups, and a Pending view per group, which makes
     the person switch groups to split one import.
+23. **2026-11-11. Each card has its own reminder switch.** `cards.reminder` is 1 when the card's
+    statement reminder shows on the calendar and 0 when it is hidden. It defaults to 1, so existing
+    cards keep their reminders after the migration. Turning a reminder off only hides it; ticks stay
+    stored in `reminder_completions`, so turning it back on shows the month as it was. The owner
+    changes it with `PUT /api/cards/:id/reminder` instead of `PATCH /api/cards/:id`, because the card
+    save inserts a full row and a partial body would fail its checks. A reminder is only a calendar
+    entry; nothing is emailed or pushed. Rejected: a per-person setting, which needs a new table keyed
+    by member and card and still gives one shared calendar two different views of the same group.

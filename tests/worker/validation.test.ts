@@ -6,6 +6,7 @@ import { households, householdMembers } from '../../worker/db/schema';
 import { ScopedRepository } from '../../worker/lib/scope';
 import { createAuth } from '../../worker/auth';
 import workerApp, { type Env } from '../../worker/index';
+import { validateRosterInput } from '../../worker/lib/validate';
 
 const db = () => drizzle(env.DB);
 const repo = () => new ScopedRepository(db(), 'h1');
@@ -248,5 +249,17 @@ describe('queue file metadata validation', () => {
       sourceFileId: ('sourceFileId' in metadata ? metadata.sourceFileId : null),
       sourceFileName: ('sourceFileName' in metadata ? metadata.sourceFileName : null),
     });
+  });
+});
+
+describe('validateRosterInput', () => {
+  it('accepts a list of distinct ids', () => {
+    expect(validateRosterInput({ in: ['m1'] }).value).toEqual({ in: ['m1'] });
+  });
+
+  it.each([{}, { in: [] }, { in: [''] }, { in: ['m1', 'm1'] }])('rejects %j', (body) => {
+    const { value, fields } = validateRosterInput(body);
+    expect(value).toBeNull();
+    expect(fields.in).toEqual(expect.any(String));
   });
 });

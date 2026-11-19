@@ -478,6 +478,23 @@ describe('parseReceipt', () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
+  // Every scan stays on Gemini 3.8 Flash: Flash Lite misread more statements in testing (#74).
+  it('sends every retry to Gemini 3.8 Flash and never to a smaller model', async () => {
+    vi.useFakeTimers();
+    const models: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      models.push(String(input).match(/\/models\/([^:]+):/)?.[1] ?? '');
+      return new Response(null, { status: 503 });
+    }));
+
+    const assertion = expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+      .rejects.toThrow(GeminiUpstreamError);
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    expect(models).toEqual(Array(5).fill('gemini-3.8-flash'));
+  });
+
   it('classifies a persistent 500 as a generic upstream error after retries are used up', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 500 }));

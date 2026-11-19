@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthReminders, todayIn } from '../src/lib/reminders';
+import { monthReminders, shiftMonth, todayIn } from '../src/lib/reminders';
 import { distinctColors } from '../src/components/ledger';
 
 const card = (id: string, name: string, statementDay: number | null, archived = 0) => ({ id, name, statementDay, archived });
@@ -33,6 +33,11 @@ describe('monthReminders', () => {
     expect(reminders.map((r) => r.id)).toEqual(['card:c1', 'rent']);
     expect(reminders[0].label).toBe('Renamed statement');
   });
+
+  it('skips a card whose reminder is off', () => {
+    const reminders = monthReminders(2026, 10, [{ ...card('c1', 'Amex', 15), reminder: 0 }, { ...card('c2', 'Visa', 15), reminder: 1 }]);
+    expect(reminders.map((r) => r.id)).toEqual(['card:c2', 'rent']);
+  });
 });
 
 describe('todayIn', () => {
@@ -55,4 +60,13 @@ describe('distinctColors', () => {
     expect(colors.a).toBe('#8b5cf6');
     expect(colors.k).not.toBe(colors.a);
   });
+});
+
+describe('shiftMonth', () => {
+  it('steps back within a year', () => { expect(shiftMonth('2026-11', -2)).toBe('2026-09'); });
+  it('steps back across a year boundary', () => {
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12');
+    expect(shiftMonth('2026-02', -2)).toBe('2025-12');
+  });
+  it('returns the same month for offset 0', () => { expect(shiftMonth('2026-11', 0)).toBe('2026-11'); });
 });

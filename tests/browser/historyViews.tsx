@@ -9,7 +9,7 @@ const members: Member[] = [
   { id: 'm1', displayName: 'Alex', role: 'owner', sortOrder: 0, archivedAt: null, sittingOutAt: null },
   { id: 'm2', displayName: 'Sam', role: 'member', sortOrder: 1, archivedAt: null, sittingOutAt: null },
 ];
-const cards: Card[] = [{ id: 'c1', memberId: 'm1', name: 'Visa', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null }];
+const cards: Card[] = [{ id: 'c1', memberId: 'm1', name: 'Visa', archived: 0, sortOrder: 0, statementDay: null, historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 }];
 const transaction: Transaction = {
   id: 't1', expenseId: 'e1', revision: 3, hasBeenApproved: true, lastEditedAt: 1791986400000,
   parentExpenseId: null, date: '2026-10-01', store: 'Corner market', amountCents: 12000,

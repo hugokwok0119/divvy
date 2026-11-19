@@ -8,14 +8,14 @@ export interface Reminder {
   date: string;
 }
 
-/** A month's statement reminders for active cards with a day, then the month-end rent reminder unless the group turned it off. */
+/** A month's statement reminders for active cards with a day and their reminder on, then the month-end rent reminder unless the group turned it off. */
 export function monthReminders(
   year: number, month: number,
-  cards: Array<{ id: string; name: string; statementDay: number | null; archived: number }>,
+  cards: Array<{ id: string; name: string; statementDay: number | null; archived: number; reminder?: number }>,
   rentReminder = true,
 ): Reminder[] {
   return [
-    ...cards.filter((c) => !c.archived && c.statementDay != null).map((c) => ({
+    ...cards.filter((c) => !c.archived && c.statementDay != null && c.reminder !== 0).map((c) => ({
       id: `card:${c.id}`, cardId: c.id, label: `${c.name} statement`, date: statementDateFor(year, month, c.statementDay!),
     })),
     ...(rentReminder ? [{ id: 'rent', cardId: null, label: 'Rent', date: statementDateFor(year, month, 31) }] : []),
@@ -30,4 +30,10 @@ export function todayIn(timeZone: string, now = new Date()): string {
   } catch {
     return new Intl.DateTimeFormat('en-CA', options).format(now);
   }
+}
+
+/** The `YYYY-MM` month `offset` months away from `monthKey`. */
+export function shiftMonth(monthKey: string, offset: number): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1 + offset, 1)).toISOString().slice(0, 7);
 }

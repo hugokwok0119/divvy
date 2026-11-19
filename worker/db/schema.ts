@@ -10,6 +10,8 @@ export const households = sqliteTable('households', {
   // Name the user gave the open cycle; closeCycle moves it to cycles.name.
   currentCycleName: text('current_cycle_name'),
   rentReminder: integer('rent_reminder').notNull().default(1),
+  // Set when the owner saves who is in; null until the first save.
+  rosterConfirmedAt: integer('roster_confirmed_at'),
   createdAt: integer('created_at').notNull(),
 });
 
@@ -44,6 +46,8 @@ export const cards = sqliteTable('cards', {
   historyName: text('history_name'),
   historyStatementDay: integer('history_statement_day'),
   historyAppliedAt: integer('history_applied_at'),
+  // 1 shows this card's statement reminder on the calendar; 0 hides it and keeps its stored ticks.
+  reminder: integer('reminder').notNull().default(1),
 }, (t) => [index('cards_household_idx').on(t.householdId)]);
 
 export const cycles = sqliteTable('cycles', {

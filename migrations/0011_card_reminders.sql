@@ -1,0 +1,1 @@
+ALTER TABLE `cards` ADD `reminder` integer DEFAULT 1 NOT NULL;

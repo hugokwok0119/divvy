@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeBalances, minimalTransfers, computeSettlement, combinedSettlement } from '../src/lib/settlement';
+import { computeBalances, minimalTransfers, computeSettlement, combinedSettlement, activeRosterOf } from '../src/lib/settlement';
 
 const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
 
@@ -150,5 +150,19 @@ describe('combinedSettlement', () => {
     const out = combinedSettlement([cycle('c1', { a: -5000, b: 5000 })], []);
     expect(out.cycleIds).toEqual([]);
     expect(out.transfers).toEqual([]);
+  });
+});
+
+describe('activeRosterOf', () => {
+  const members = [
+    { id: 'a', archivedAt: null }, { id: 'b', archivedAt: null }, { id: 'gone', archivedAt: 1 },
+  ];
+  it('leaves an archived member with no activity out of the close summary', () => {
+    const s = computeSettlement([{ payerId: 'a', amountCents: 1000, shares: { a: 500, b: 500 } }], activeRosterOf(members));
+    expect(Object.keys(s.balances)).toEqual(['a', 'b']);
+  });
+  it('keeps an archived member who paid in the selected rows', () => {
+    const s = computeSettlement([{ payerId: 'gone', amountCents: 1000, shares: { a: 500, b: 500 } }], activeRosterOf(members));
+    expect(s.balances.gone).toBe(1000);
   });
 });

@@ -1,4 +1,4 @@
-import type { GroupSummary, Bootstrap, Member, Transaction, QueueItem, Cycle, CycleGroup, Settlement, ExpenseHistoryEvent, CloseCycleInput, ReminderCompletion } from '../types';
+import type { GroupSummary, Bootstrap, Member, Transaction, QueueItem, Cycle, CycleGroup, Settlement, ExpenseHistoryEvent, CloseCycleInput, ReminderCompletion, Card } from '../types';
 import { CATEGORIES, canonicalCategory, categoryOptions } from '../constants';
 
 export class ApiError extends Error {
@@ -167,14 +167,20 @@ function makeApi(headers: () => Record<string, string>) {
     updateHousehold: (patch: unknown) =>
       req<unknown>('/api/household', { method: 'PATCH', body: JSON.stringify(patch) }),
 
+    deleteGroup: () =>
+      req<void>('/api/household', { method: 'DELETE' }),
+
     upsertMember: (input: unknown) =>
       req<unknown>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
 
-    setSittingOut: (id: string, sittingOut: boolean) =>
-      req<Member>(`/api/members/${encodeURIComponent(id)}/sitting-out`, { method: 'PUT', body: JSON.stringify({ sittingOut }) }),
+    setRoster: (inIds: string[]) =>
+      req<Member[]>('/api/members/roster', { method: 'PUT', body: JSON.stringify({ in: inIds }) }),
 
     upsertCard: (input: unknown) =>
       req<unknown>('/api/cards', { method: 'POST', body: JSON.stringify(input) }),
+
+    setCardReminder: (id: string, reminder: boolean) =>
+      req<Card>(`/api/cards/${encodeURIComponent(id)}/reminder`, { method: 'PUT', body: JSON.stringify({ reminder }) }),
 
     deleteCard: (id: string) =>
       req<void>(`/api/cards/${encodeURIComponent(id)}`, { method: 'DELETE' }),

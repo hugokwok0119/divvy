@@ -187,14 +187,14 @@ export function buildDemoData(samples: SampleResult[]): DemoState {
 
   const card = (id: string, memberId: string, sortOrder: number, statementDay: number): Card => ({
     id, memberId, name: CARD_NAMES[id], archived: 0, sortOrder, statementDay,
-    historyName: null, historyStatementDay: null, historyAppliedAt: null,
+    historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1,
   });
 
   return {
     bootstrap: {
       me: { memberId: DEMO_IDS.alex, role: 'owner' },
       household: { id: DEMO_IDS.household, name: 'Demo Household', currencyCode: 'CAD',
-        timezone: 'America/Vancouver', customCategories: [], currentCycleName: null, rentReminder: true },
+        timezone: 'America/Vancouver', customCategories: [], currentCycleName: null, rentReminder: true, rosterConfirmedAt: null },
       members,
       cards: [card(DEMO_IDS.visa, DEMO_IDS.alex, 0, 5), card(DEMO_IDS.mastercard, DEMO_IDS.sam, 1, 20)],
       transactions: open.sort(byDateDesc),

@@ -1,7 +1,8 @@
 // Data access only through scope.repo.
 import { Hono, type Context } from 'hono';
 import { requireScope, requireOwner } from '../lib/scope';
-import { validateHouseholdPatch, validateMemberInput, validateCardInput, validateReminderInput, validateOrderInput, REMINDER_MONTH } from '../lib/validate';
+import { listGroups } from '../lib/groups';
+import { validateHouseholdPatch, validateMemberInput, validateCardInput, validateReminderInput, validateOrderInput, validateRosterInput, REMINDER_MONTH } from '../lib/validate';
 import type { Env } from '../index';
 
 export const householdRoutes = new Hono<{ Bindings: Env }>();
@@ -12,6 +13,17 @@ householdRoutes.patch('/', async (c) => {
   const { value, fields } = validateHouseholdPatch(await c.req.json().catch(() => null));
   if (!value) return c.json({ error: 'Invalid household update', fields }, 400);
   return c.json(await scope.repo.updateHousehold(value));
+});
+
+householdRoutes.delete('/', async (c) => {
+  const scope = await requireScope(c);
+  requireOwner(scope);
+  // Never leave the caller with no group to open.
+  if ((await listGroups(c)).groups.length < 2) {
+    return c.json({ error: 'Create another group before deleting your only group' }, 409);
+  }
+  await scope.repo.deleteHousehold();
+  return c.body(null, 204);
 });
 
 async function reorder(c: Context<{ Bindings: Env }>, kind: 'members' | 'cards') {
@@ -37,22 +49,20 @@ memberRoutes.post('/', async (c) => {
 
 memberRoutes.put('/order', (c) => reorder(c, 'members'));
 
+memberRoutes.put('/roster', async (c) => {
+  const scope = await requireScope(c);
+  requireOwner(scope);
+  const { value, fields } = validateRosterInput(await c.req.json().catch(() => null));
+  if (!value) return c.json({ error: 'Invalid roster', fields }, 400);
+  return c.json(await scope.repo.setRoster(value.in));
+});
+
 memberRoutes.patch('/:id', async (c) => {
   const scope = await requireScope(c);
   requireOwner(scope);
   const { value, fields } = validateMemberInput(await c.req.json().catch(() => null), { requireId: false });
   if (!value) return c.json({ error: 'Invalid member', fields }, 400);
   return c.json(await scope.repo.upsertMember({ ...value, id: c.req.param('id') } as never));
-});
-
-memberRoutes.put('/:id/sitting-out', async (c) => {
-  const scope = await requireScope(c);
-  requireOwner(scope);
-  const body = await c.req.json().catch(() => null);
-  if (typeof body?.sittingOut !== 'boolean') {
-    return c.json({ error: 'Invalid sitting out', fields: { sittingOut: 'Expected a boolean' } }, 400);
-  }
-  return c.json(await scope.repo.setSittingOut(c.req.param('id'), body.sittingOut));
 });
 
 memberRoutes.delete('/:id', async (c) => {
@@ -84,6 +94,16 @@ cardRoutes.patch('/:id', async (c) => {
   const { value, fields } = validateCardInput(await c.req.json().catch(() => null), { requireId: false });
   if (!value) return c.json({ error: 'Invalid card', fields }, 400);
   return c.json(await scope.repo.upsertCard({ ...value, id: c.req.param('id') } as never));
+});
+
+cardRoutes.put('/:id/reminder', async (c) => {
+  const scope = await requireScope(c);
+  requireOwner(scope);
+  const body = await c.req.json().catch(() => null);
+  if (typeof body?.reminder !== 'boolean') {
+    return c.json({ error: 'Invalid reminder', fields: { reminder: 'Expected true or false' } }, 400);
+  }
+  return c.json(await scope.repo.setCardReminder(c.req.param('id'), body.reminder));
 });
 
 cardRoutes.delete('/:id', async (c) => {

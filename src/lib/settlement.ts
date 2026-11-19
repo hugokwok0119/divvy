@@ -76,6 +76,11 @@ export function splitRosterOf(
   return members.filter((m) => m.archivedAt === null && m.sittingOutAt == null).map((m) => m.id);
 }
 
+/** Who a settlement lists even with no activity: members not archived, in the given order. */
+export function activeRosterOf(members: Array<{ id: MemberId; archivedAt: number | null }>): MemberId[] {
+  return members.filter((m) => m.archivedAt === null).map((m) => m.id);
+}
+
 export interface TxForBalance {
   payerId: MemberId;
   amountCents: number;

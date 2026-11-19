@@ -24,9 +24,9 @@ const fixture = {
   ],
   cards: [
     { id: 'c1', householdId: 'h1', memberId: 'm1', name: 'Card One', archived: 0, sortOrder: 0, statementDay: null,
-      historyName: null, historyStatementDay: null, historyAppliedAt: null },
+      historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 },
     { id: 'c2', householdId: 'h1', memberId: 'm2', name: 'Card Two', archived: 0, sortOrder: 1, statementDay: null,
-      historyName: null, historyStatementDay: null, historyAppliedAt: null },
+      historyName: null, historyStatementDay: null, historyAppliedAt: null, reminder: 1 },
   ],
   transactions: [
     { id: 't1', expenseId: 'e-t1', date: '2026-10-01', store: 'Quillfern Market', amountCents: 2565, category: 'Groceries',
@@ -44,7 +44,7 @@ function demoServer() {
   const h = fixture.household;
   const bootstrap: Bootstrap = {
     me: { memberId: 'm1', role: 'owner' },
-    household: { id: h.id, name: h.name, currencyCode: h.currencyCode, timezone: h.timezone, customCategories: [], currentCycleName: null, rentReminder: true },
+    household: { id: h.id, name: h.name, currencyCode: h.currencyCode, timezone: h.timezone, customCategories: [], currentCycleName: null, rentReminder: true, rosterConfirmedAt: null },
     members: fixture.members.map(({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) =>
       ({ id, displayName, role, sortOrder, archivedAt, sittingOutAt }) as Member),
     cards: fixture.cards.map((card) => ({ ...card }) as Card),
