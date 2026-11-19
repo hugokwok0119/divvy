@@ -15,8 +15,8 @@ const assert = (value: unknown, message: string) => { if (!value) throw new Erro
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const results: string[] = [];
 
-type Options = { locked?: boolean; canEdit?: boolean; slowSave?: boolean };
-function mount({ locked = false, canEdit = true, slowSave = false }: Options = {}) {
+type Options = { locked?: boolean; canEdit?: boolean; slowSave?: boolean; failSave?: boolean };
+function mount({ locked = false, canEdit = true, slowSave = false, failSave = false }: Options = {}) {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -25,7 +25,7 @@ function mount({ locked = false, canEdit = true, slowSave = false }: Options = {
   let release = () => {};
   flushSync(() => root.render(<MembersCard
     members={members} groupName="Home" locked={locked} canEdit={canEdit}
-    onSave={(ids) => { saves.push(ids); return slowSave ? new Promise<void>((resolve) => { release = resolve; }) : Promise.resolve(); }}
+    onSave={(ids) => { saves.push(ids); if (failSave) return Promise.reject(new Error('Who is in is locked while this cycle has expenses')); return slowSave ? new Promise<void>((resolve) => { release = resolve; }) : Promise.resolve(); }}
     onClose={() => { closes++; }}
     restoreFocus={() => null}
   />));
@@ -87,4 +87,12 @@ await check('Escape closes without saving', async (view) => {
   view.escape();
   assert(view.closes() === 1 && view.saves.length === 0, 'Escape saved or stayed open');
 });
+await check('shows the server message when saving fails', async (view) => {
+  view.click(save(view));
+  await flush();
+  const alert = view.dialog().querySelector('[role="alert"]');
+  assert(alert?.textContent === 'Who is in is locked while this cycle has expenses', `Missing inline error: ${alert?.textContent}`);
+  assert(view.dialog().open && view.closes() === 0, 'Card closed after a failed save');
+  assert(!save(view).disabled, 'Save stayed busy after a failed save');
+}, { failSave: true });
 document.querySelector('[role="status"]')!.textContent = `${results.filter((result) => result.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;

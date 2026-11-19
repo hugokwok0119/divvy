@@ -713,8 +713,9 @@ export default function TransactionList(props: TransactionListProps) {
   const splitControls = (row: LedgerRow, draft: ExpenseDraft, disabled: boolean) => {
     const chosen = draft.splitType === 'single' ? draft.splitRule?.memberId : null;
     const splitMembers = members.filter((member) => splitRoster.includes(member.id) || member.id === chosen || (draft.splitType === 'custom' && member.id in (draft.splitRule?.percentages ?? {})));
-    // The roster is locked while the cycle has rows, so every equal row in it spreads across this list.
-    const equalNames = listFormat.format(splitRoster.map((id) => members.find((m) => m.id === id)!.displayName));
+    // A saved equal row names who it was split among (past cycles too); anything else would split across who is in.
+    const equalIds = row.kind === 'approved' && row.item.splitType === 'equal' ? Object.keys(JSON.parse(row.item.splitSharesJson) as Record<string, number>) : splitRoster;
+    const equalNames = listFormat.format(equalIds.map((id) => members.find((m) => m.id === id)?.displayName ?? 'Former member'));
     const allocationSummary = Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => `${members.find(m => m.id === id)?.displayName ?? 'Former member'} ${formatPercentage(value)}`).join(' · ');
     const indicator = (background: string) => <span aria-hidden="true" className="ledger-split-line" style={{ background }} />;
     return <div className="ledger-split" aria-label="Split between" data-read-only={readOnly || undefined}>

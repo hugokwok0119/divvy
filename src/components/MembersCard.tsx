@@ -17,11 +17,16 @@ interface Props {
 const MembersCard: React.FC<Props> = ({ members, groupName, locked, canEdit, onSave, onClose, restoreFocus }) => {
   const [inIds, setInIds] = useState(() => new Set(members.filter((m) => m.archivedAt === null && m.sittingOutAt === null).map((m) => m.id)));
   const [saving, setSaving] = useState(false);
+  // Shown in the card: a toast would sit under the modal's top layer.
+  const [error, setError] = useState<string | null>(null);
   const editable = canEdit && !locked;
   const save = async () => {
     setSaving(true);
+    setError(null);
     try {
       await onSave(members.filter((m) => inIds.has(m.id)).map((m) => m.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save who is in.');
     } finally {
       setSaving(false);
     }
@@ -56,6 +61,7 @@ const MembersCard: React.FC<Props> = ({ members, groupName, locked, canEdit, onS
       {editable && inIds.size === 0 && <p role="alert" className="mt-2 text-body2 text-red-700">At least one person must be in.</p>}
       {locked && <p className="mt-3 text-body1 text-slate-700">Locked while this cycle has Pending or Approved expenses. Close the cycle to change who is in.</p>}
       {!locked && !canEdit && <p className="mt-3 text-body1 text-slate-700">Only the group owner can change who is in.</p>}
+      {error && <p role="alert" className="mt-3 text-body1 text-red-700">{error}</p>}
     </ModalCard>
   );
 };

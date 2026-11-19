@@ -345,12 +345,14 @@ const App: React.FC = () => {
       onSave={async (inIds) => {
         try {
           await api.setRoster(inIds);
-          await refresh();
-          setMembersOpen(false);
-          showToast('Saved who is in', 'success');
         } catch (err) {
-          showToast(err instanceof ApiError ? err.message : 'Could not save who is in.', 'error');
+          // A 409 means the cycle locked meanwhile; the refresh shows the card's locked state.
+          if (err instanceof ApiError && err.status === 409) await refresh();
+          throw err instanceof ApiError ? err : new Error('Could not save who is in.');
         }
+        await refresh();
+        setMembersOpen(false);
+        showToast('Saved who is in', 'success');
       }}
       onClose={() => setMembersOpen(false)}
       restoreFocus={() => document.getElementById('members-button')}

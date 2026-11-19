@@ -107,7 +107,7 @@ async function wait(test: () => boolean, message: string) {
   }
   throw new Error(message);
 }
-async function mount(options: { member?: boolean; legacy?: boolean; settled?: boolean; allocation?: Record<string, number>; third?: boolean; archived?: boolean; pendingComplete?: boolean; returned?: boolean; sitOut?: boolean } = {}) {
+async function mount(options: { member?: boolean; legacy?: boolean; settled?: boolean; allocation?: Record<string, number>; third?: boolean; archived?: boolean; pendingComplete?: boolean; returned?: boolean; sitOut?: boolean; shares?: Record<string, number> } = {}) {
   let stored = structuredClone(initial);
   if (options.pendingComplete || options.returned) stored.queue[0] = { ...pending, date: approved.date, store: approved.store,
     amountCents: approved.amountCents, category: approved.category, payerId: approved.payerId, splitType: 'equal',
@@ -118,6 +118,7 @@ async function mount(options: { member?: boolean; legacy?: boolean; settled?: bo
   }
   if (options.third) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null, sittingOutAt: null });
   if (options.archived) stored.members[1].archivedAt = 1;
+  if (options.shares) stored.transactions[0].splitSharesJson = JSON.stringify(options.shares);
   if (options.sitOut) stored.members.push({ id: 'm3', displayName: 'Morgan', role: 'member', sortOrder: 2, archivedAt: null, sittingOutAt: 1 });
   if (options.member) stored.me = { memberId: 'm2', role: 'member' };
   const closings: CloseCycleInput[] = [];
@@ -1091,6 +1092,14 @@ await check('hides split buttons for members who sit out', async v => {
   v.change('Payer', 'm3');
   assert(v.field('Payer').value === 'm3', 'Member who sits out must stay a payer');
 }, { sitOut: true });
+await check('equal button names who an Approved equal row was split among', async v => {
+  await v.click('Approved (1)');
+  const approved = v.host.querySelector('.ledger-equal')!;
+  assert(approved.getAttribute('aria-label') === 'Split Cafe equally among Alex, Morgan, and Former member', `Approved label ${approved.getAttribute('aria-label')}`);
+  assert(approved.getAttribute('title') === 'Equally among Alex, Morgan, and Former member', 'Approved title must name the stored shares');
+  await v.click('Pending (1)');
+  assert(v.host.querySelector('.ledger-equal')!.getAttribute('aria-label') === 'Split expense equally among Alex and Sam', 'Pending label must name who is in');
+}, { sitOut: true, shares: { m1: 334, m3: 333, gone: 333 } });
 const output = `${results.filter((r) => r.startsWith('PASS')).length}/${results.length} passed\n${results.join('\n')}`;
 document.querySelector('[role="status"]')!.textContent = output;
 if (new URLSearchParams(location.search).has('demo')) {
