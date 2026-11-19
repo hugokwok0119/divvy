@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Settings, History, LogOut, RotateCcw, TrendingUp } from 'lucide-react';
+import { Settings, History, LogOut, RotateCcw, TrendingUp, Users } from 'lucide-react';
 
 import { signOut, useSession } from './lib/auth-client';
 import { api, ApiError, currentGroupId, setCurrentGroup } from './lib/api';
@@ -20,7 +20,8 @@ import HistoryPage from './components/HistoryModal';
 import AnalyticsPage from './components/AnalyticsPage';
 import CycleName from './components/CycleName';
 import GroupSwitcher from './components/GroupSwitcher';
-import SplittingWith from './components/SplittingWith';
+import MembersCard from './components/MembersCard';
+import { cycleLocked, rosterAskKey, rosterNeedsConfirm } from './lib/cycleRoster';
 import { permissionsFor } from './lib/permissions';
 import NewGroupCard from './components/NewGroupCard';
 import SendToGroupCard from './components/SendToGroupCard';
@@ -302,10 +303,13 @@ const App: React.FC = () => {
 
   // --- Groups ---
   const otherPendingIds = data && groupList && ledgerTab === 'pending' ? pendingSectionIds(groupList.groups, data.household.id).slice(1) : [];
-  // The header only tells lists apart; alone it would repeat "Splitting with".
+  // The header only tells lists apart; a single list sits under the group's own header.
   const groupHeaders = otherPendingIds.length > 0;
+  // Ask the owner who is in once per group and closed cycle, so focus refreshes do not reopen it.
+  const askedFor = useRef<string | null>(null);
   const selectGroup = (id: string) => {
     setCurrentGroup(id);
+    askedFor.current = null;
     setChoosingGroup(false);
     // Filters name the old group's people and cards; a stale one would hide every row.
     setFilterDateStart(''); setFilterDateEnd(''); setFilterCategory(''); setFilterPayerId(''); setFilterCardId('');
@@ -324,6 +328,36 @@ const App: React.FC = () => {
     if (pick) selectGroup(pick);
     else { setData(null); setChoosingGroup(true); setSwitcherOpen(true); }
   };
+  const [membersOpen, setMembersOpen] = useState(false);
+  useEffect(() => {
+    if (!data || demo || !rosterNeedsConfirm(data)) return;
+    const key = rosterAskKey(data);
+    if (askedFor.current === key) return;
+    askedFor.current = key;
+    setMembersOpen(true);
+  }, [data, demo]);
+  const membersCard = membersOpen && data && (
+    <MembersCard
+      members={data.members}
+      groupName={data.household.name}
+      locked={cycleLocked(data)}
+      canEdit={!demo && permissionsFor(data.me.role).canManageMembers}
+      onSave={async (inIds) => {
+        try {
+          await api.setRoster(inIds);
+        } catch (err) {
+          // A 409 means the cycle locked meanwhile; the refresh shows the card's locked state.
+          if (err instanceof ApiError && err.status === 409) await refresh();
+          throw err instanceof ApiError ? err : new Error('Could not save who is in.');
+        }
+        await refresh();
+        setMembersOpen(false);
+        showToast('Saved who is in', 'success');
+      }}
+      onClose={() => setMembersOpen(false)}
+      restoreFocus={() => document.getElementById('members-button')}
+    />
+  );
   const switcher = groupList && (
     <GroupSwitcher
       groups={groupList.groups}
@@ -401,14 +435,28 @@ const App: React.FC = () => {
           {/* Below sm the group name needs the room; the heading stays for screen readers. */}
           <h1 className="sr-only sm:not-sr-only font-bold text-heading1 text-slate-800 tracking-tight">Divvy</h1>
         </button>
-        <div className="ml-2 mr-auto min-w-0 pr-2">{switcher}</div>
+        {/* Below sm every control is an icon so the group name keeps its room at 375px. */}
+        <div className="ml-1 sm:ml-2 mr-auto flex min-w-0 items-center gap-1 sm:gap-2 pr-1 sm:pr-2">
+          {switcher}
+          <button
+            id="members-button"
+            type="button"
+            aria-label="Members"
+            aria-haspopup="dialog"
+            onClick={() => setMembersOpen(true)}
+            className="flex shrink-0 items-center justify-center gap-2 px-2 sm:px-3 py-2 pointer-coarse:min-h-11 pointer-coarse:min-w-11 rounded-lg font-medium text-body1 text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <Users size={18} aria-hidden="true" />
+            <span className="hidden sm:inline" aria-hidden="true">Members</span>
+          </button>
+        </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
           <button
             onClick={() => setCurrentView('analytics')}
             aria-label="Analytics"
             aria-pressed={currentView === 'analytics'}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'analytics' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'analytics' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
             <TrendingUp size={18} aria-hidden="true" />
             <span className="hidden sm:inline" aria-hidden="true">Analytics</span>
@@ -417,7 +465,7 @@ const App: React.FC = () => {
             onClick={() => setCurrentView('history')}
             aria-label="History"
             aria-pressed={currentView === 'history'}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'history' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors font-medium text-sm ${currentView === 'history' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
             <History size={18} aria-hidden="true" />
             <span className="hidden sm:inline" aria-hidden="true">History</span>
@@ -425,7 +473,7 @@ const App: React.FC = () => {
           <button
             onClick={() => setCurrentView('settings')}
             aria-label="Settings"
-            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-2 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
           >
             <Settings size={18} aria-hidden="true" />
           </button>
@@ -434,10 +482,11 @@ const App: React.FC = () => {
             onClick={() => (demo ? demo.exitDemo() : void signOut())}
             aria-label={demo ? 'Exit demo' : 'Sign out'}
             title={demo ? 'Exit demo' : 'Sign out'}
-            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-2 sm:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
           >
             <LogOut size={18} aria-hidden="true" />
-            {demo && <span aria-hidden="true">Exit demo</span>}
+            {/* Below sm the demo banner's own Exit demo button keeps the label visible. */}
+            {demo && <span className="hidden sm:inline" aria-hidden="true">Exit demo</span>}
           </button>
         </div>
       </div>
@@ -458,6 +507,7 @@ const App: React.FC = () => {
 
       {newGroupCard}
       {sendCard}
+      {membersCard}
 
       {/* Keyed by group: every view remounts and refetches when the group changes. */}
       <main key={data.household.id} className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -509,18 +559,6 @@ const App: React.FC = () => {
                   onSave={async (name) => { await api.renameCycle('current', name); await refresh(); }}
                 />
               </div>
-              <SplittingWith
-                members={data.members}
-                canEdit={!demo && permissionsFor(data.me.role).canManageMembers}
-                onToggle={async (id, sittingOut) => {
-                  try {
-                    await api.setSittingOut(id, sittingOut);
-                    await refresh();
-                  } catch (err) {
-                    showToast(err instanceof ApiError ? err.message : 'Could not update who is splitting.', 'error');
-                  }
-                }}
-              />
               <div role="tablist" aria-label="Ledger views" className="flex gap-2 mb-4 border-b border-slate-200">
                 <button role="tab" aria-selected={ledgerTab === 'pending'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('pending')}>Pending ({data.queue.length})</button>
                 <button role="tab" aria-selected={ledgerTab === 'approved'} className={`px-4 py-3 border-b-2 text-sm font-semibold ${ledgerTab === 'approved' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`} onClick={() => setLedgerTab('approved')}>Approved ({data.transactions.length})</button>

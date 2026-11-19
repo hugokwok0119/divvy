@@ -77,10 +77,11 @@ unit-tested.
 - Splitting is exact. Shares come from integer division, and the remainder is handed out one
   cent at a time by the largest remainder method. Per-member shares always sum to the amount.
 - Split types are `equal` (across the members who are in), `custom` (percentages) and `single`
-  (one member). A member who sits out is left out of new equal splits, and a new custom split
-  starts them at 0%. Their existing shares and balance never change, and they still count in the
-  settlement. The owner toggles this with the Splitting with chips above the ledger, and at least
-  one member must stay in.
+  (one member). A member who sits out is left out of new equal splits and of the split columns,
+  and a new custom split leaves them out. Their existing shares and balance never change, and they
+  still count in the settlement. The owner chooses who is in with the Members card beside the group
+  switcher while the open cycle has no Pending or Approved rows, and at least one member must stay
+  in.
 - A member's balance is what they paid minus what they consumed, summed from the stored shares.
   Balances across the household sum to zero, and greedy matching of creditors and debtors turns
   them into a short list of transfers.
@@ -270,6 +271,9 @@ Each entry gives the date, the decision and the reason.
     The flag only changes how new equal splits spread; stored shares are never recomputed. Rejected:
     a per-cycle roster, which needs a new table and a reset step at every close, and archiving the
     member, which hides them from the payer and single-split controls.
+    Amended 2026-11-11: the flag changes only while the open cycle has no Pending or Approved rows,
+    through the Members card, and members who sit out leave the split columns but stay available as
+    payers.
 22. **2026-10-22. One Pending screen with a section per group, and Send to group in two calls.**
     The Pending tab shows the current group, then every other group with Pending rows, each with
     its own heading and people. Send to group copies the selected rows into the target group with

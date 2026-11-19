@@ -139,6 +139,7 @@ export interface Bootstrap {
     customCategories: string[];
     currentCycleName: string | null;
     rentReminder: boolean;
+    rosterConfirmedAt: number | null;
   };
   members: Member[];
   cards: Card[];

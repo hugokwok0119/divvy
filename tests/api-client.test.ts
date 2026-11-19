@@ -193,4 +193,12 @@ describe('group-aware api client', () => {
     expect(await api.createGroup(input)).toMatchObject({ id: 'h4' });
     expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual(input);
   });
+
+  it('saves who is in with PUT /api/members/roster', async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify([{ id: 'm1' }]), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await api.setRoster(['m1'])).toEqual([{ id: 'm1' }]);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/members/roster');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT', body: JSON.stringify({ in: ['m1'] }) });
+  });
 });

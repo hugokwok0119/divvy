@@ -97,6 +97,7 @@ const control =
 const button =
   'rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-blue-500';
 const emptyPendingItems: QueueItem[] = [];
+const listFormat = new Intl.ListFormat('en', { type: 'conjunction' });
 
 export default function TransactionList(props: TransactionListProps) {
   const {
@@ -576,7 +577,7 @@ export default function TransactionList(props: TransactionListProps) {
       percentages: Object.fromEntries(Object.entries(
         draft.splitType === 'custom' && draft.splitRule?.percentages
           ? draft.splitRule.percentages
-          : Object.fromEntries(activeMembers.map(member => [member.id, splitRoster.includes(member.id) ? 100 / (splitRoster.length || 1) : 0])),
+          : Object.fromEntries(splitRoster.map(id => [id, 100 / (splitRoster.length || 1)])),
       ).map(([id, value]) => [id, String(value)])),
     },
   });
@@ -631,7 +632,7 @@ export default function TransactionList(props: TransactionListProps) {
     } catch {
       /* No bill amount yet: the dialog still shows the subtotal. */
     }
-    const allocationMembers = allocation ? members.filter(member => !member.archivedAt || member.id in allocation.percentages) : [];
+    const allocationMembers = allocation ? members.filter(member => splitRoster.includes(member.id) || member.id in allocation.percentages) : [];
     const setMode = (mode: 'percent' | 'amount') => allocation && update({ ...draft, customAllocation: {
       ...allocation, mode, finished: false,
       amounts: allocation.amounts ?? Object.fromEntries(allocationMembers.map(member => [member.id, ''])),
@@ -642,7 +643,7 @@ export default function TransactionList(props: TransactionListProps) {
           const type = e.target.value;
           update(type === 'custom' ? openAllocation(draft) : {
             ...draft, customAllocation: undefined, splitType: type,
-            splitRule: type === 'single' ? { memberId: draft.payerId || activeMembers[0]?.id } : null,
+            splitRule: type === 'single' ? { memberId: splitRoster.includes(draft.payerId) ? draft.payerId : splitRoster[0] } : null,
           });
         }}>
           <option value="">Choose split…</option><option value="equal">Shared (Equal)</option>
@@ -652,7 +653,7 @@ export default function TransactionList(props: TransactionListProps) {
       {!allocation && draft.splitType === 'single' && <label className="ledger-allocation-field text-xs text-slate-600">Split member
         <select aria-label="Split member" value={draft.splitRule?.memberId ?? ''} disabled={disabled} className={control}
           onChange={e => update({ ...draft, splitRule: { memberId: e.target.value } })}>
-          <option value="">Choose member…</option>{members.map(member => <option key={member.id} value={member.id}>{member.displayName}</option>)}
+          <option value="">Choose member…</option>{members.filter(member => splitRoster.includes(member.id) || member.id === draft.splitRule?.memberId).map(member => <option key={member.id} value={member.id}>{member.displayName}</option>)}
         </select>
       </label>}
       {!allocation && draft.splitType === 'custom' && <button type="button" className={button} disabled={disabled} onClick={() => update(openAllocation(draft))}>Edit allocation</button>}
@@ -711,14 +712,17 @@ export default function TransactionList(props: TransactionListProps) {
   })).values()].sort((a, b) => a.label.localeCompare(b.label));
   const splitControls = (row: LedgerRow, draft: ExpenseDraft, disabled: boolean) => {
     const chosen = draft.splitType === 'single' ? draft.splitRule?.memberId : null;
-    const splitMembers = members.filter((member) => !member.archivedAt || member.id === chosen || (draft.splitType === 'custom' && member.id in (draft.splitRule?.percentages ?? {})));
+    const splitMembers = members.filter((member) => splitRoster.includes(member.id) || member.id === chosen || (draft.splitType === 'custom' && member.id in (draft.splitRule?.percentages ?? {})));
+    // A saved equal row names who it was split among (past cycles too); anything else would split across who is in.
+    const equalIds = row.kind === 'approved' && row.item.splitType === 'equal' ? Object.keys(JSON.parse(row.item.splitSharesJson) as Record<string, number>) : splitRoster;
+    const equalNames = listFormat.format(equalIds.map((id) => members.find((m) => m.id === id)?.displayName ?? 'Former member'));
     const allocationSummary = Object.entries(draft.splitRule?.percentages ?? {}).map(([id, value]) => `${members.find(m => m.id === id)?.displayName ?? 'Former member'} ${formatPercentage(value)}`).join(' · ');
     const indicator = (background: string) => <span aria-hidden="true" className="ledger-split-line" style={{ background }} />;
     return <div className="ledger-split" aria-label="Split between" data-read-only={readOnly || undefined}>
-      <button type="button" className="ledger-icon ledger-split-button ledger-equal" aria-label={`Split ${draft.store || 'expense'} equally`} title="Equally among members who are in" aria-pressed={draft.splitType === 'equal'} disabled={disabled || readOnly} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'equal', splitRule: null })); closeAllocation(); }}>
+      <button type="button" className="ledger-icon ledger-split-button ledger-equal" aria-label={`Split ${draft.store || 'expense'} equally among ${equalNames}`} title={`Equally among ${equalNames}`} aria-pressed={draft.splitType === 'equal'} disabled={disabled || readOnly} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'equal', splitRule: null })); closeAllocation(); }}>
         <Users size={14} aria-hidden="true" />{indicator('#64748b')}
       </button>
-      {splitMembers.map((member) => <button key={member.id} type="button" className="ledger-icon ledger-split-button ledger-person" style={{ '--member-color': memberColor(member.id) } as React.CSSProperties} aria-label={`Assign ${draft.store || 'expense'} to ${member.displayName}`} title={member.displayName} aria-pressed={chosen === member.id} disabled={disabled || readOnly || (!!member.archivedAt && chosen !== member.id)} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'single', splitRule: { memberId: member.id } })); closeAllocation(); }}>
+      {splitMembers.map((member) => <button key={member.id} type="button" className="ledger-icon ledger-split-button ledger-person" style={{ '--member-color': memberColor(member.id) } as React.CSSProperties} aria-label={`Assign ${draft.store || 'expense'} to ${member.displayName}`} title={member.displayName} aria-pressed={chosen === member.id} disabled={disabled || readOnly || (!splitRoster.includes(member.id) && chosen !== member.id)} onClick={() => { completedEdit(row, (current) => ({ ...current, customAllocation: undefined, splitType: 'single', splitRule: { memberId: member.id } })); closeAllocation(); }}>
         {member.displayName.slice(0, 1).toUpperCase()}{indicator(memberColor(member.id))}
       </button>)}
       <button type="button" className="ledger-icon ledger-split-button ledger-custom" aria-describedby={`allocation-tip-${row.item.expenseId}`} title={draft.splitType === 'custom' ? `Custom split: ${allocationSummary}` : 'Custom percentages'} aria-description={draft.splitType === 'custom' ? allocationSummary : undefined} aria-label={`Custom split for ${draft.store || 'expense'}`} aria-pressed={draft.splitType === 'custom'} aria-expanded={splitEditor === row.item.expenseId} disabled={disabled || (readOnly && draft.splitType !== 'custom')} onClick={event => {
@@ -913,7 +917,7 @@ export default function TransactionList(props: TransactionListProps) {
                   bulkAllocationTrigger.current = event.currentTarget;
                   setBulkSplit(openAllocation({ ...draftFrom(rows[0].item), splitType: 'equal', splitRule: null }));
                 } else if (value) stageBulk(draft => ({ ...draft, customAllocation: undefined, splitType: value === 'equal' ? 'equal' : 'single', splitRule: value === 'equal' ? null : { memberId: value } }));
-              }}><option value="" disabled hidden>Split</option><option value="equal">Equal</option>{activeMembers.map(member => <option key={member.id} value={member.id}>{member.displayName}</option>)}<option value="custom">Custom</option></select>
+              }}><option value="" disabled hidden>Split</option><option value="equal">Equal</option>{members.filter(member => splitRoster.includes(member.id)).map(member => <option key={member.id} value={member.id}>{member.displayName}</option>)}<option value="custom">Custom</option></select>
             </div>
             <div className="ledger-bulk-actions">
               {mode === 'approved' && props.onReturnToPending && <button type="button" className={`${button} ledger-icon`} aria-label="Move selected to Pending" title="Move selected to Pending" disabled={allBusy || busy.size > 0 || selectedRows.some(row => row.kind !== 'approved' || row.item.cycleId !== null)} onClick={event => {

@@ -10,6 +10,8 @@ export const households = sqliteTable('households', {
   // Name the user gave the open cycle; closeCycle moves it to cycles.name.
   currentCycleName: text('current_cycle_name'),
   rentReminder: integer('rent_reminder').notNull().default(1),
+  // Set when the owner saves who is in; null until the first save.
+  rosterConfirmedAt: integer('roster_confirmed_at'),
   createdAt: integer('created_at').notNull(),
 });
 

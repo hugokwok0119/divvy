@@ -25,6 +25,7 @@ bootstrap.get('/', async (c) => {
       customCategories: JSON.parse(household.customCategoriesJson),
       currentCycleName: household.currentCycleName,
       rentReminder: household.rentReminder === 1,
+      rosterConfirmedAt: household.rosterConfirmedAt,
     },
     members, cards, transactions, queue, cycles,
     categoryPreferences: prefs,

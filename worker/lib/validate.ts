@@ -658,3 +658,10 @@ export function validateOrderInput(body: unknown): { ids: string[] | null; field
   }
   return { ids, fields: {} };
 }
+
+/** Body of PUT /api/members/roster: the members who are in, same id rules as a reorder. */
+export function validateRosterInput(body: unknown): { value: { in: string[] } | null; fields: Fields } {
+  const { ids } = validateOrderInput(isPlainObject(body) ? { ids: body.in } : null);
+  if (!ids) return { value: null, fields: { in: `Expected 1-${MAX_BULK_BATCH} distinct member ids` } };
+  return { value: { in: ids }, fields: {} };
+}
