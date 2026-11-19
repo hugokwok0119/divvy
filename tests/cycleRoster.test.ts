@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cycleLocked, rosterNeedsConfirm } from '../src/lib/cycleRoster';
+import { cycleLocked, rosterAskKey, rosterNeedsConfirm } from '../src/lib/cycleRoster';
 import type { Bootstrap, Cycle, QueueItem, Transaction } from '../src/types';
 
 const cycle = (closedAt: number): Cycle => ({
@@ -46,5 +46,17 @@ describe('rosterNeedsConfirm', () => {
   });
   it('does not ask while the cycle is locked', () => {
     expect(rosterNeedsConfirm(boot({ queue: [{}] }))).toBe(false);
+  });
+});
+
+describe('rosterAskKey', () => {
+  it('changes after a later cycle close', () => {
+    expect(rosterAskKey(boot())).toBe('h1:none');
+    expect(rosterAskKey(boot({ cycles: [cycle(50), cycle(200)] }))).toBe('h1:200');
+    expect(rosterAskKey(boot({ cycles: [cycle(50), cycle(200), cycle(300)] }))).not.toBe(rosterAskKey(boot({ cycles: [cycle(50), cycle(200)] })));
+  });
+  it('stays the same across a refresh with the same data', () => {
+    const data = boot({ cycles: [cycle(200)] });
+    expect(rosterAskKey(structuredClone(data))).toBe(rosterAskKey(data));
   });
 });

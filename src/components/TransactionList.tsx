@@ -643,7 +643,7 @@ export default function TransactionList(props: TransactionListProps) {
           const type = e.target.value;
           update(type === 'custom' ? openAllocation(draft) : {
             ...draft, customAllocation: undefined, splitType: type,
-            splitRule: type === 'single' ? { memberId: draft.payerId || activeMembers[0]?.id } : null,
+            splitRule: type === 'single' ? { memberId: splitRoster.includes(draft.payerId) ? draft.payerId : splitRoster[0] } : null,
           });
         }}>
           <option value="">Choose split…</option><option value="equal">Shared (Equal)</option>

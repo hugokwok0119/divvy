@@ -21,7 +21,7 @@ import AnalyticsPage from './components/AnalyticsPage';
 import CycleName from './components/CycleName';
 import GroupSwitcher from './components/GroupSwitcher';
 import MembersCard from './components/MembersCard';
-import { cycleLocked, lastClosedAt, rosterNeedsConfirm } from './lib/cycleRoster';
+import { cycleLocked, rosterAskKey, rosterNeedsConfirm } from './lib/cycleRoster';
 import { permissionsFor } from './lib/permissions';
 import NewGroupCard from './components/NewGroupCard';
 import SendToGroupCard from './components/SendToGroupCard';
@@ -331,7 +331,7 @@ const App: React.FC = () => {
   const [membersOpen, setMembersOpen] = useState(false);
   useEffect(() => {
     if (!data || demo || !rosterNeedsConfirm(data)) return;
-    const key = `${data.household.id}:${lastClosedAt(data) ?? 'none'}`;
+    const key = rosterAskKey(data);
     if (askedFor.current === key) return;
     askedFor.current = key;
     setMembersOpen(true);

@@ -8,6 +8,10 @@ export const cycleLocked = (b: Pick<Bootstrap, 'queue' | 'transactions'>): boole
 export const lastClosedAt = (b: Pick<Bootstrap, 'cycles'>): number | null =>
   b.cycles.length === 0 ? null : Math.max(...b.cycles.map((c) => c.closedAt));
 
+/** One auto-open per group and closed cycle: a later close changes the key, a refresh does not. */
+export const rosterAskKey = (b: Pick<Bootstrap, 'household' | 'cycles'>): string =>
+  `${b.household.id}:${lastClosedAt(b) ?? 'none'}`;
+
 /** The owner is asked who is in when the open cycle is empty and the roster was not saved since the last close. */
 export const rosterNeedsConfirm = (b: Bootstrap): boolean => {
   if (b.me.role !== 'owner' || cycleLocked(b)) return false;
