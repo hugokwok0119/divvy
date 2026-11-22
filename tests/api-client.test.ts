@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { api, apiFor, ApiError, setCurrentGroup } from '../src/lib/api';
+import { api, apiFor, ApiError, refreshFailure, setCurrentGroup } from '../src/lib/api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -200,5 +200,15 @@ describe('group-aware api client', () => {
     expect(await api.setRoster(['m1'])).toEqual([{ id: 'm1' }]);
     expect(fetchMock.mock.calls[0][0]).toBe('/api/members/roster');
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT', body: JSON.stringify({ in: ['m1'] }) });
+  });
+});
+
+describe('refreshFailure', () => {
+  it('sorts refresh errors by what the app must do', () => {
+    expect(refreshFailure(new ApiError(401, 'Unauthorized'))).toBe('signed-out');
+    expect(refreshFailure(new ApiError(400, 'Choose a group', 'group_required'))).toBe('choose-group');
+    expect(refreshFailure(new ApiError(403, 'Removed from this household'))).toBe('removed');
+    expect(refreshFailure(new ApiError(500, 'Internal error'))).toBe('transient');
+    expect(refreshFailure(new TypeError('Failed to fetch'))).toBe('transient');
   });
 });

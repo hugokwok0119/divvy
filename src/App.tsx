@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Settings, History, LogOut, RotateCcw, TrendingUp, Users } from 'lucide-react';
 
 import { signOut, useSession } from './lib/auth-client';
-import { api, ApiError, currentGroupId, setCurrentGroup } from './lib/api';
+import { api, ApiError, currentGroupId, refreshFailure, setCurrentGroup } from './lib/api';
 import { pendingSectionIds, pickGroup } from './lib/groups';
 import { activeRosterOf, computeSettlement } from './lib/settlement';
 import { formatCentsWithSymbol, cycleGroupsOf, cycleName } from './lib/money';
@@ -75,20 +75,33 @@ const App: React.FC = () => {
         setData(await api.bootstrap());
         setLoadError(null);
       } catch (err) {
-        if (err instanceof ApiError && err.status === 401) { setData(null); return; }
-        if (err instanceof ApiError && err.reason === 'group_required') {
-          setCurrentGroup(null);
-          setData(null);
-          setChoosingGroup(true);
-          openSwitcher(true);
-          return;
+        const message = err instanceof Error ? err.message : 'Could not load your data';
+        switch (refreshFailure(err)) {
+          case 'signed-out':
+            setData(null);
+            setLoadError(null);
+            return;
+          case 'choose-group':
+            setCurrentGroup(null);
+            setData(null);
+            setLoadError(null);
+            setChoosingGroup(true);
+            openSwitcher(true);
+            return;
+          case 'removed':
+            setData(null);
+            setLoadError(message);
+            return;
+          case 'transient':
+            // Loaded data stays on screen; the full-screen error only shows when nothing has loaded.
+            setLoadError(message);
+            showToast('Could not refresh. Showing the last loaded data.');
         }
-        setLoadError(err instanceof Error ? err.message : 'Could not load your data');
       }
     });
     refreshQueue.current = queued;
     return queued;
-  }, [openSwitcher]);
+  }, [openSwitcher, showToast]);
 
   // Pick a group before the first bootstrap: with several and no valid stored
   // choice, ask instead of letting the server answer group_required.
@@ -326,7 +339,7 @@ const App: React.FC = () => {
     showToast(`Deleted ${name}`, 'success');
     const pick = pickGroup(null, remaining);
     if (pick) selectGroup(pick);
-    else { setData(null); setChoosingGroup(true); setSwitcherOpen(true); }
+    else { setData(null); setLoadError(null); setChoosingGroup(true); setSwitcherOpen(true); }
   };
   const [membersOpen, setMembersOpen] = useState(false);
   useEffect(() => {
@@ -408,7 +421,7 @@ const App: React.FC = () => {
   // In the demo a session refetch (on focus) must not unmount the app.
   if (!demo && isPending) return <div className="min-h-screen grid place-items-center text-slate-500">Loading…</div>;
   if (!demo && !session) return <LoginPage onTryDemo={enterDemo} />;
-  if (loadError) return <div className="min-h-screen grid place-items-center text-red-600">{loadError}</div>;
+  if (loadError && !data) return <div className="min-h-screen grid place-items-center text-red-600">{loadError}</div>;
   if (choosingGroup && !data) return (
     <div className="min-h-screen bg-slate-50 grid place-items-center p-4">
       <div className="flex flex-col items-center gap-3 text-center">
