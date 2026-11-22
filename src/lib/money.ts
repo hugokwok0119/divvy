@@ -5,9 +5,14 @@ import type { Card, CycleGroup, Member } from '../types';
 export const MAX_AMOUNT_CENTS = 100_000_000;
 
 const CLEAN = /[$,\s]/g;
+const DECIMAL_COMMA = /^-?\$?\s*\d+,\d{1,2}$/;
+const NOT_THOUSANDS = /,(?!\d{3}(?!\d))/; // a comma not followed by exactly three digits
 
 export function parseAmountToCents(input: string): number {
-  const cleaned = String(input).replace(CLEAN, '');
+  const trimmed = String(input).trim();
+  const text = DECIMAL_COMMA.test(trimmed) ? trimmed.replace(',', '.') : trimmed;
+  if (NOT_THOUSANDS.test(text)) throw new RangeError(`Not a valid amount: ${JSON.stringify(input)}`);
+  const cleaned = text.replace(CLEAN, '');
   if (!/^-?\d*\.?\d+$/.test(cleaned)) {
     throw new RangeError(`Not a valid amount: ${JSON.stringify(input)}`);
   }

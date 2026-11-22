@@ -31,6 +31,10 @@ describe('parseCsv', () => {
     expect(parseCsv('Date,Description,Amount\n2024-05-22,Walmart,(3.29)')[0].amountCents).toBe(-329);
   });
 
+  it('reads a quoted decimal-comma amount the same way as manual entry', () => {
+    expect(parseCsv('Date,Description,Amount\n2024-06-09,Uber,"12,50"')[0].amountCents).toBe(1250);
+  });
+
   it('records an issue rather than guessing when the amount is unparseable', () => {
     const rows = parseCsv('Date,Description,Amount\n2024-06-09,Uber,not-a-number');
     expect(rows[0].amountCents).toBeNull();
