@@ -92,6 +92,22 @@ describe('sitting out', () => {
     expect(await shares('t1')).toEqual({ m1: 450, m2: 450 });
   });
 
+  it('re-splits a single on a member who sits out to equal across members who are in', async () => {
+    await setRoster(['m1', 'm2']);
+    await repo().insertTransaction(tx('t1', { splitType: 'single', splitRule: { memberId: 'm3' } }) as never);
+    const res = await send('/transactions/t1', 'PATCH', { revision: 1, splitType: 'equal', splitRule: null });
+    expect(res.status).toBe(200);
+    expect(await shares('t1')).toEqual({ m1: 450, m2: 450 });
+  });
+
+  it('re-splits a custom split naming a member who sits out to equal across members who are in', async () => {
+    await setRoster(['m1', 'm2']);
+    await repo().insertTransaction(tx('t1', { splitType: 'custom', splitRule: { percentages: { m1: 50, m3: 50 } } }) as never);
+    const res = await send('/transactions/t1', 'PATCH', { revision: 1, splitType: 'equal', splitRule: null });
+    expect(res.status).toBe(200);
+    expect(await shares('t1')).toEqual({ m1: 450, m2: 450 });
+  });
+
   it('splits a bulk-imported equal row only across members who are in', async () => {
     await setRoster(['m1', 'm2']);
     expect((await send('/transactions/bulk', 'POST', { transactions: [tx('t1')] })).status).toBe(201);
