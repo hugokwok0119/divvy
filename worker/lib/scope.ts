@@ -609,12 +609,26 @@ export class ScopedRepository {
     if (cycle.status === 'settled') {
       throw new HTTPException(409, { message: 'Cycle is already settled' });
     }
+    // Deleted rows count too: a soft delete bumps the revision the guard compares.
+    const inCycle = and(eq(transactions.householdId, this.householdId), eq(transactions.cycleId, cycleId));
+    const rows = await this.db.select({ id: transactions.id, revision: transactions.revision })
+      .from(transactions).where(inCycle);
+    const keys = JSON.stringify(rows.map((r) => `${r.id}:${r.revision}`));
     const settlement = await this.cycleSettlement(cycleId);
-    await this.db.update(cycles).set({
+    const result = await this.db.update(cycles).set({
       status: 'settled',
       settlementJson: JSON.stringify(settlement),
       settledAt: Date.now(),
-    }).where(and(eq(cycles.id, cycleId), eq(cycles.householdId, this.householdId)));
+    }).where(and(
+      eq(cycles.id, cycleId),
+      eq(cycles.householdId, this.householdId),
+      eq(cycles.status, 'closed'),
+      sql`(select count(*) from ${transactions} where ${inCycle}) = ${rows.length}`,
+      sql`not exists (select 1 from ${transactions} where ${inCycle} and (${transactions.id} || ':' || ${transactions.revision}) not in (select value from json_each(${keys})))`,
+    ));
+    if (result.meta.changes !== 1) {
+      throw new HTTPException(409, { message: 'This cycle changed while it was being settled. Try again.' });
+    }
     return this.requireCycle(cycleId);
   }
 
