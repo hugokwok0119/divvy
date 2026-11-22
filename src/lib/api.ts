@@ -9,6 +9,17 @@ export class ApiError extends Error {
   }
 }
 
+export type RefreshFailure = 'signed-out' | 'choose-group' | 'removed' | 'transient';
+
+/** What a failed bootstrap refresh means for the app; anything unrecognised may pass on retry. */
+export function refreshFailure(err: unknown): RefreshFailure {
+  if (!(err instanceof ApiError)) return 'transient';
+  if (err.status === 401) return 'signed-out';
+  if (err.reason === 'group_required') return 'choose-group';
+  if (err.status === 403) return 'removed';
+  return 'transient';
+}
+
 const GROUP_KEY = 'divvy.groupId';
 
 // Read once: another tab may switch groups, and this tab keeps its own.
