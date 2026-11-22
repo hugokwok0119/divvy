@@ -1,4 +1,5 @@
 import { CATEGORIES, canonicalCategory } from '../../src/constants';
+import { isIsoDate, isFiniteIntCents, STORE_MAX_LEN } from './validate';
 
 export interface ReceiptDraft {
   date: string | null;
@@ -40,25 +41,25 @@ export function isAllowedMime(mime: string | null): boolean {
   return mime !== null && ALLOWED_MIME.has(mime);
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 /**
  * Validates the model response. Unknown fields stay null rather than being
- * guessed, and a missing date is never replaced with today.
+ * guessed, and a missing date is never replaced with today. Fields use the
+ * queue's own checks so one bad row cannot fail the whole bulk import.
  */
 export function validateDraft(
   raw: unknown,
   allowedCategories: readonly string[] = CATEGORIES,
 ): ReceiptDraft {
   const o = (raw ?? {}) as Record<string, unknown>;
-  const date = typeof o.date === 'string' && ISO_DATE.test(o.date) ? o.date : null;
-  const store = typeof o.store === 'string' && o.store.trim() !== '' ? o.store.trim() : null;
+  const date = isIsoDate(o.date) ? o.date : null;
+  const store = typeof o.store === 'string' && o.store.trim() !== '' ? o.store.trim().slice(0, STORE_MAX_LEN) : null;
   const rawCategory = typeof o.category === 'string' ? canonicalCategory(o.category) : null;
   const category = rawCategory !== null && allowedCategories.includes(rawCategory) ? rawCategory : null;
 
   let amountCents: number | null = null;
   if (typeof o.amount === 'number' && Number.isFinite(o.amount)) {
-    amountCents = Math.round(o.amount * 100);
+    const cents = Math.round(o.amount * 100);
+    if (isFiniteIntCents(cents)) amountCents = cents;
   }
 
   return { date, store, amountCents, category };

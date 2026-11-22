@@ -17,7 +17,7 @@ import { MAX_AMOUNT_CENTS } from '../../src/lib/money';
 export { MAX_AMOUNT_CENTS };
 export const MAX_BULK_BATCH = 200;
 export const ID_MAX_LEN = 100;
-const STORE_MAX_LEN = 200;
+export const STORE_MAX_LEN = 200;
 export const CATEGORY_MAX_LEN = 40;
 const NAME_MAX_LEN = 80;
 
