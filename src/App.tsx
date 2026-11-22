@@ -93,7 +93,8 @@ const App: React.FC = () => {
             setLoadError(message);
             return;
           case 'transient':
-            // Loaded data stays on screen; the full-screen error only shows when nothing has loaded.
+            // Loaded data stays only while it belongs to the current group; the full-screen error shows otherwise.
+            setData((d) => (d && d.household.id === currentGroupId() ? d : null));
             setLoadError(message);
             showToast('Could not refresh. Showing the last loaded data.');
         }
