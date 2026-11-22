@@ -412,7 +412,7 @@ export class ScopedRepository {
     const splitChanged = amountCents !== current.amountCents || explicitReSplit;
     const currentShares: Record<string, number> = JSON.parse(current.splitSharesJson);
     const frozen = this.frozenParticipants(current);
-    // Equal follows who is in now; custom and single keep the original participants.
+    // Equal follows who is in now; custom and single keep the original participants and may name any current member.
     const participants = !explicitReSplit
       ? frozen
       : splitType === 'equal'
