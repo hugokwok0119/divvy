@@ -33,6 +33,26 @@ describe('parseAmountToCents', () => {
     expect(() => parseAmountToCents('1.2.3')).toThrow(RangeError);
   });
 
+  it('reads a lone comma with one or two digits after it as the decimal mark', () => {
+    expect(parseAmountToCents('12,50')).toBe(1250);
+    expect(parseAmountToCents('12,5')).toBe(1250);
+    expect(parseAmountToCents('-12,50')).toBe(-1250);
+    expect(parseAmountToCents('$12,50')).toBe(1250);
+    expect(parseAmountToCents(' 12,50 ')).toBe(1250);
+  });
+
+  it('keeps commas followed by three digits as thousands separators', () => {
+    expect(parseAmountToCents('1,234')).toBe(123400);
+    expect(parseAmountToCents('1,234,567.89')).toBe(123456789);
+    expect(parseAmountToCents('-$1,234.56')).toBe(-123456);
+  });
+
+  it('rejects any other comma rather than guessing', () => {
+    for (const bad of ['1,2,3', '12,5,0', '1,23.45', '1,2345', ',50', '12,', '1.234,56', '1 234,56']) {
+      expect(() => parseAmountToCents(bad), bad).toThrow(RangeError);
+    }
+  });
+
   it('parses amounts that lose precision when multiplied as floats', () => {
     // These products land just below .5 in IEEE-754, so a float-based
     // implementation rounds them down: 1.015*100 is 101.49999999999999

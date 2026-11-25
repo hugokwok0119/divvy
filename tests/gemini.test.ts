@@ -3,6 +3,7 @@ import {
   validateDraft, sniffImageMime, isAllowedMime, parseReceipt, toBase64,
   GeminiTimeoutError, GeminiQuotaError, GeminiUnsupportedFileError, GeminiUpstreamError,
 } from '../worker/lib/gemini';
+import { STORE_MAX_LEN, validateQueueBulk } from '../worker/lib/validate';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -45,6 +46,30 @@ describe('validateDraft', () => {
   it('survives a completely unexpected shape', () => {
     expect(validateDraft(null)).toEqual({ date: null, store: null, amountCents: null, category: null });
     expect(validateDraft('nonsense')).toEqual({ date: null, store: null, amountCents: null, category: null });
+  });
+
+  it('nulls a date that is not on the calendar', () => {
+    expect(validateDraft({ date: '2026-02-30', store: 'Uber', amount: 1 }).date).toBeNull();
+  });
+
+  it('cuts a store name to the length the queue accepts', () => {
+    expect(validateDraft({ date: '2024-06-09', store: `  ${'x'.repeat(250)}  `, amount: 1 }).store).toBe('x'.repeat(STORE_MAX_LEN));
+  });
+
+  it('nulls an amount larger than the queue accepts', () => {
+    expect(validateDraft({ date: '2024-06-09', store: 'Uber', amount: 2_000_000 }).amountCents).toBeNull();
+  });
+
+  it('always produces a row the queue accepts', () => {
+    const raws = [
+      { date: '2026-02-30', store: 'Uber', amount: 1 },
+      { date: '2024-06-09', store: `  ${'x'.repeat(250)}  `, amount: 1 },
+      { date: '2024-06-09', store: 'Uber', amount: 1e300 },
+    ];
+    const items = raws.map((raw, i) => ({
+      id: `q${i}`, source: 'image', payerId: null, cardId: null, splitType: null, ...validateDraft(raw),
+    }));
+    expect(validateQueueBulk({ items }).fields).toEqual({});
   });
 });
 

@@ -68,6 +68,40 @@ describe('settleCycle', () => {
     await env.DB.exec("UPDATE cycles SET settlement_json = NULL WHERE id = 'cy1'");
     await expect(repo().cycleSettlement('cy1')).rejects.toThrow();
   });
+
+  const settleWith = (during: () => Promise<unknown>) => {
+    class Interleaved extends ScopedRepository {
+      async cycleSettlement(id: string) {
+        const s = await super.cycleSettlement(id);
+        await during();
+        return s;
+      }
+    }
+    return new Interleaved(db(), 'h1').settleCycle('cy1');
+  };
+  const CHANGED = /changed while it was being settled/i;
+
+  it('refuses when an expense is edited during the settle', async () => {
+    await expect(settleWith(() => repo().updateTransaction('t1', { amountCents: 2000 }))).rejects.toThrow(CHANGED);
+    const cycle = await repo().requireCycle('cy1');
+    expect(cycle.status).toBe('closed');
+    expect(cycle.settlementJson).toBeNull();
+    const retried = await repo().settleCycle('cy1');
+    expect(JSON.parse(retried.settlementJson!).balances).toEqual({ m1: 1000, m2: -1000 });
+  });
+
+  it('refuses when an expense is deleted during the settle', async () => {
+    await expect(settleWith(() => repo().softDeleteTransaction('t1'))).rejects.toThrow(CHANGED);
+  });
+
+  it('refuses when an expense is split during the settle', async () => {
+    await expect(settleWith(() => repo().splitTransaction('t1', 't9', 300, 2))).rejects.toThrow(CHANGED);
+  });
+
+  it('refuses the second of two settles that overlap', async () => {
+    await expect(settleWith(() => repo().settleCycle('cy1'))).rejects.toThrow(CHANGED);
+    expect((await repo().requireCycle('cy1')).status).toBe('settled');
+  });
 });
 
 describe('unsettleCycle', () => {
