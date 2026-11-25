@@ -29,3 +29,14 @@ These rules apply to every agent working in this repository. `CONTRIBUTING.md` h
 - Migrations only add tables, columns or indexes. Dropping or renaming takes two releases.
 - Staging deploys automatically from `dev`. Production deploys only from a `vX.Y.Z` tag on `main`, after the owner approves in the `production` environment. Never deploy production by hand with `wrangler deploy`.
 - Never print, commit or paste secrets. `.dev.vars*` files are gitignored and stay local.
+
+# Testing on staging
+
+Staging has no Google sign-in (`docs/DESIGN.md`, decision 8). When the owner needs to test on staging, sign them in from the agent's built-in browser. Never ask the owner to paste a cookie into their own browser console.
+
+1. Reuse the `document.cookie=...` line saved in `.dev.vars.staging-cookie` while `GET /api/auth/get-session` with that cookie still returns a user.
+2. Otherwise run `npm run seed:staging` from a checkout of the current `dev`, with `.dev.vars.staging` holding the staging `BETTER_AUTH_SECRET`, and save the printed `document.cookie=...` line to `.dev.vars.staging-cookie`. The seed wipes the staging app tables, refills the fictional household and starts a 30-day session for the demo user.
+3. Open `https://divvy-staging.hugohhkwok.workers.dev/` in the built-in browser, run the saved line in that page, check that `/api/auth/get-session` returns the demo user, and reload.
+4. Tell the owner the signed-in page is ready in the browser pane.
+
+Signing out deletes the seeded session on the server, and the login page then offers only the demo, which accepts only the sample statements. After a sign-out, re-seed and sign in again.
