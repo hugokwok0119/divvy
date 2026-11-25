@@ -23,7 +23,7 @@ type Row = { date: string; store: string; amountCents: number; category: string 
 describe('demo statement replay', () => {
   it('replays every reconciled sample', async () => {
     const { server } = setup();
-    const reconciled = samples.filter((s) => s.status === 200);
+    const reconciled = samples.filter((s) => (s.body as { reconciled?: boolean }).reconciled === true);
     expect(reconciled).toHaveLength(9);
     for (const sample of reconciled) {
       const res = await parse(server, pdf(sample.fileName));
@@ -32,15 +32,16 @@ describe('demo statement replay', () => {
     }
   });
 
-  it('refuses every no-total sample like production', async () => {
+  it('imports every no-total sample as unverified like production', async () => {
     const { server } = setup();
     for (const id of ['sample-d1', 'sample-d2', 'sample-e1', 'sample-e2']) {
       const sample = samples.find((s) => s.id === id)!;
       const res = await parse(server, pdf(sample.fileName));
-      expect(res.status, id).toBe(422);
-      const body = await res.json();
+      expect(res.status, id).toBe(200);
+      const body = await res.json() as { transactions: Row[] };
       expect(body, id).toEqual(sample.body);
-      expect(body, id).toMatchObject({ reason: 'reconciliation_failed', statementTotalCents: null });
+      expect(body, id).toMatchObject({ reconciled: false, statementTotalCents: null });
+      expect(body.transactions.length, id).toBeGreaterThan(0);
     }
   });
 

@@ -90,29 +90,6 @@ aiRoutes.post('/parse-receipt', async (c) => {
     })),
   };
 
-  // Returned rather than thrown so the body can carry a machine-readable
-  // reason: the import result screen has to tell a reconciliation failure
-  // apart from any other 422, and matching on message text is fragile.
-  if (mime === 'application/pdf' && !result.reconciled) {
-    if (result.statementTotalCents === null) {
-      return c.json({
-        error: 'Could not verify the statement total. No rows were imported.',
-        reason: 'reconciliation_failed',
-        itemsTotalCents: result.itemsTotalCents,
-        statementTotalCents: null,
-      }, 422);
-    }
-    const currency = household.currencyCode;
-    const itemsTotal = (result.itemsTotalCents / 100).toFixed(2);
-    const statementTotal = (result.statementTotalCents / 100).toFixed(2);
-    return c.json({
-      error: `Statement check failed: items total ${currency} ${itemsTotal}, statement total ${currency} ${statementTotal}. No rows were imported.`,
-      reason: 'reconciliation_failed',
-      itemsTotalCents: result.itemsTotalCents,
-      statementTotalCents: result.statementTotalCents,
-    }, 422);
-  }
-
   const first = result.transactions[0]
     ?? { date: null, store: null, amountCents: null, category: null };
   // Top-level first draft keeps older cached clients working during deploys.

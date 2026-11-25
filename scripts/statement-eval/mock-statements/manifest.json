@@ -1026,7 +1026,7 @@
       "referenceComponents": null,
       "referenceAlternatives": [],
       "closingBalanceCents": 43120,
-      "demo": "No printed purchase total: the app refuses the PDF and imports no rows, rather than guess a total"
+      "demo": "No printed purchase total: the app imports the rows as unverified for review, rather than guess a total"
     },
     {
       "id": "sample-d2",

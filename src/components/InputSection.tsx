@@ -179,7 +179,7 @@ const InputSection: React.FC<InputSectionProps> = ({
         rows: items,
         itemsTotalCents: result.itemsTotalCents ?? null,
         statementTotalCents: isPdf ? (result.statementTotalCents ?? null) : null,
-        reconciliationStatus: isPdf ? (result.reconciled === false ? 'failed' : 'matched') : 'not_applicable',
+        reconciliationStatus: isPdf ? (result.reconciled === false ? 'unverified' : 'matched') : 'not_applicable',
         bulk,
         failureMessage: bulk ? null : 'Could not add these rows to the review queue.',
       });

@@ -30,7 +30,7 @@ export function parseHandler(state: DemoState, samples: SampleResult[], parseDel
     const sample = samples.find((s) => s.sha256 === hash);
     if (!sample) return json({ error: DEMO_SAMPLE_ONLY, reason: 'demo_sample_only' }, 403);
     if (sample.status !== 200) return json(sample.body, sample.status);
-    // worker/routes/ai.ts:81-92 and 117-120: exact saved relabels win, then row 0 is copied to the top level.
+    // Mirrors worker/routes/ai.ts: exact saved relabels win, then row 0 is copied to the top level.
     const body = structuredClone(sample.body) as Row & { transactions: Row[] };
     const preferences = state.bootstrap.categoryPreferences;
     for (const row of body.transactions) {
