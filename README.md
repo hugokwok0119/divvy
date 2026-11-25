@@ -5,8 +5,8 @@
 
 Divvy is a household expense-splitting app. Members import credit-card statements or CSV
 exports, review each expense together, and settle up at the end of a monthly cycle. An AI model
-reads PDF statements, and every result is checked against the statement's own printed total
-before anything is imported.
+reads PDF statements, and every result is checked against the statement's own printed figures.
+When those figures cannot prove the rows' total, Divvy imports the rows as unverified for you to review.
 
 Live app: <https://divvy.hugohhkwok.workers.dev>. Use **Try the demo** on the login page to try a
 fictional household in your browser. The demo sends nothing to the server.

@@ -34,7 +34,7 @@ The main flow:
 | Database | Cloudflare D1 (SQLite), schema in `worker/db/schema.ts`, migrations in `migrations/` |
 | ORM | Drizzle ORM, migrations generated with drizzle-kit |
 | Auth | Better Auth with Google OAuth only, sessions stored in D1 |
-| AI | Gemini (`gemini-3.8-flash`), called only from the Worker in `worker/lib/gemini.ts` |
+| AI | Gemini (`gemini-4-hydrogen`), called only from the Worker in `worker/lib/gemini.ts` |
 | Front end | React 19, Tailwind v4, built by Vite into `dist/` |
 | Tests | Vitest: a `pure` project for logic and a `worker` project that runs the Worker against an in-memory D1 |
 
@@ -44,8 +44,8 @@ file signature, and rate-limits each household to 10 AI requests per day (`DAILY
 `worker/lib/ratelimit.ts`). Every group shares one free-tier Gemini key, so the same limit also
 applies across all groups: a second counter in `ai_usage`, under the key `all` and dated by the
 America/Vancouver day, is checked after the household's own counter. For a PDF statement, the
-Worker checks the extracted rows against the statement's own printed total and refuses a result
-that does not reconcile. CSV files are parsed in the browser and never sent to Gemini.
+model cites printed figures that prove the rows' total, and the Worker checks that they add up.
+When they cannot, the rows import as unverified for review. CSV files are parsed in the browser and never sent to Gemini.
 
 `scripts/statement-eval/` is an offline Python harness that scores the statement prompt and
 schema against a fictional mock corpus with known ground truth.
