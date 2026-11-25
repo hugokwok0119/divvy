@@ -181,6 +181,17 @@ describe('buildImportSummary', () => {
     expect(summary.source).toBe('image');
     expect(summary.rowsFound).toBe(3);
   });
+
+  it('reports an unverified statement as a partial import of every queued row', () => {
+    const summary = buildImportSummary({
+      fileName: 'statement.pdf', source: 'image', rows: [{ date: '2026-11-02', store: 'Corner Cafe', amountCents: 4500, category: 'Dining' }],
+      itemsTotalCents: 4500, statementTotalCents: null, reconciliationStatus: 'unverified',
+      bulk: { summary: { inserted: 1, duplicate: 0, rejected: 0 } },
+    });
+    expect(summary).toMatchObject({ outcome: 'partial', insertedCount: 1, failureMessage: null, reconciliationStatus: 'unverified' });
+    const html = renderToStaticMarkup(React.createElement(ImportResultScreen, { summary, onClose: () => {} }));
+    expect(html).toContain('Total not verified: check each row');
+  });
 });
 
 describe('isReconciliationFailure', () => {

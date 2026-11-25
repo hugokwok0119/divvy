@@ -104,7 +104,12 @@ describe('parseReceipt', () => {
   const statementResponse = (reconciliationComponents: unknown, transactions: unknown[] = [
     { date: '2026-08-01', store: 'Coffee Shop', amount: 12.34, category: 'Dining' },
   ]) => new Response(JSON.stringify({
-    candidates: [{ content: { parts: [{ text: JSON.stringify({ transactions, reconciliationComponents }) }] } }],
+    candidates: [{ content: { parts: [{ text: JSON.stringify({
+      transactions,
+      reconciliationComponents: Array.isArray(reconciliationComponents)
+        ? reconciliationComponents.map((component) => ({ kind: 'summary', ...component }))
+        : reconciliationComponents,
+    }) }] } }],
   }), { status: 200, headers: { 'content-type': 'application/json' } });
 
   it('returns every statement transaction and preserves refund signs', async () => {
@@ -122,8 +127,8 @@ describe('parseReceipt', () => {
             { date: '2026-08-02', store: 'Returned Item', amount: -12.00, category: 'Shopping' },
           ],
           reconciliationComponents: [
-            { label: 'Purchases & Other Charges', amount: 47.35, page: 1 },
-            { label: 'Merchant credits', amount: -12, page: 1 },
+            { label: 'Purchases & Other Charges', amount: 47.35, page: 1, kind: 'summary' },
+            { label: 'Merchant credits', amount: -12, page: 1, kind: 'summary' },
           ],
         }) }] } }],
       }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -139,9 +144,9 @@ describe('parseReceipt', () => {
     expect(requestBody.generationConfig?.temperature).toBeUndefined();
     expect(requestBody.generationConfig?.responseJsonSchema).toMatchObject({
       type: 'object',
-      required: ['transactions', 'reconciliationComponents'],
+      required: ['transactions', 'reconciliationExplanation', 'reconciliationComponents'],
       properties: {
-        reconciliationComponents: { items: { required: ['label', 'amount', 'page'] } },
+        reconciliationComponents: { items: { required: ['label', 'amount', 'page', 'kind'] } },
         transactions: {
           items: {
             required: ['date', 'store', 'amount', 'category'],
@@ -189,7 +194,7 @@ describe('parseReceipt', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: JSON.stringify({
         transactions,
-        reconciliationComponents: [{ label: 'Purchases & Other Charges', amount: 423.14, page: 1 }],
+        reconciliationComponents: [{ label: 'Purchases & Other Charges', amount: 423.14, page: 1, kind: 'summary' }],
       }) }] } }],
     }), { status: 200, headers: { 'content-type': 'application/json' } })));
 
@@ -206,7 +211,7 @@ describe('parseReceipt', () => {
     const response = (transactions: unknown[]) => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: JSON.stringify({
         transactions,
-        reconciliationComponents: [{ label: 'Purchases & Other Charges', amount: 35.35, page: 1 }],
+        reconciliationComponents: [{ label: 'Purchases & Other Charges', amount: 35.35, page: 1, kind: 'summary' }],
       }) }] } }],
     }), { status: 200, headers: { 'content-type': 'application/json' } });
     const fetchMock = vi.fn()
@@ -231,7 +236,7 @@ describe('parseReceipt', () => {
     const partialResponse = () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: JSON.stringify({
         transactions: [{ date: '2026-08-01', store: "Church's Chicken", amount: 13.81 }],
-        reconciliationComponents: [{ label: 'Purchases & Other Charges', amount: 35.35, page: 1 }],
+        reconciliationComponents: [{ label: 'Purchases & Other Charges', amount: 35.35, page: 1, kind: 'summary' }],
       }) }] } }],
     }), { status: 200, headers: { 'content-type': 'application/json' } });
     vi.stubGlobal('fetch', vi.fn()
@@ -247,18 +252,6 @@ describe('parseReceipt', () => {
     });
   });
 
-  it.each(['New Balance', 'Payments & Credits', 'Rewards balance', 'Total Cash Back Dollars', 'Total Points Earned', 'Minimum payment due', 'Credit limit', 'NET AMOUNT OF MONTHLY ACTIVITY'])(
-    'rejects %s as reference even when it matches the rows', async (label) => {
-      const fetchMock = vi.fn(async () => statementResponse([{ label, amount: 12.34, page: 1 }]));
-      vi.stubGlobal('fetch', fetchMock);
-
-      const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
-
-      expect(result).toMatchObject({ statementTotalCents: null, itemsTotalCents: 1234, reconciled: false });
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    },
-  );
-
   it.each([
     ['null', null],
     ['empty', []],
@@ -270,6 +263,7 @@ describe('parseReceipt', () => {
       { label: 'Fees', amount: 0, page: 1 },
       { label: 'Fees', amount: 0, page: 1 },
     ]],
+    ['unknown kind', [{ label: 'Purchases', amount: 0, page: 1, kind: 'other' }]],
   ])('does not reconcile %s reference evidence', async (_name, components) => {
     vi.stubGlobal('fetch', vi.fn(async () => statementResponse(components, [
       { date: '2026-08-01', store: 'Coffee Shop', amount: 0, category: 'Dining' },
@@ -281,38 +275,140 @@ describe('parseReceipt', () => {
     expect(result.reconciled).toBe(false);
   });
 
-  it.each([
-    ['Plus prefix', 'Plus Purchases', 'Purchases'],
-    ['whitespace', 'Purchases & Other Charges', 'Purchases  &\n Other Charges'],
-  ])('rejects duplicate references with %s alias', async (_name, first, second) => {
+  it('accepts a TD-style payment add-back', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => statementResponse([
-      { label: first, amount: 12.34, page: 1 },
-      { label: second, amount: 12.34, page: 1 },
+      { label: 'Purchases & Other Charges', amount: 110, page: 1, kind: 'summary' },
+      { label: 'Payments & Credits', amount: -500, page: 1, kind: 'summary' },
+      { label: 'PREAUTHORIZED PAYMENT', amount: 450, page: 1, kind: 'transaction' },
     ], [
-      { date: '2026-08-01', store: 'Coffee Shop', amount: 12.34, category: 'Dining' },
-      { date: '2026-08-01', store: 'Coffee Shop', amount: 12.34, category: 'Dining' },
+      { date: '2026-10-23', store: 'Bookstore', amount: -20, category: 'Shopping' },
+      { date: '2026-11-02', store: 'Streaming Service', amount: 45, category: 'Subscriptions' },
+      { date: '2026-11-19', store: 'Corner Cafe', amount: 25, category: 'Dining' },
+      { date: '2026-11-15', store: 'Green Grocer', amount: 10, category: 'Groceries' },
     ])));
+    const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(result).toMatchObject({ statementTotalCents: 6000, itemsTotalCents: 6000, reconciled: true });
+  });
+
+  it('refuses evidence that cites an imported row', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => statementResponse([
+      { label: 'Purchases & Other Charges', amount: 20, page: 1, kind: 'summary' },
+      { label: 'ARCTERYX (refund)', amount: -7.66, page: 1, kind: 'transaction' },
+    ], [
+      { date: '2026-10-01', store: 'Arcteryx', amount: 20, category: 'Shopping' },
+      { date: '2026-10-02', store: 'Arcteryx', amount: -7.66, category: 'Shopping' },
+    ])));
+    const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(result).toMatchObject({ statementTotalCents: null, itemsTotalCents: 1234, reconciled: false });
+  });
+
+  it('refuses a self-citation labelled as a summary figure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => statementResponse([
+      { label: 'Purchases & Other Charges', amount: 20, page: 1, kind: 'summary' },
+      { label: 'ARCTERYX (refund)', amount: -7.66, page: 1, kind: 'summary' },
+    ], [
+      { date: '2026-10-01', store: 'Arcteryx', amount: 20, category: 'Shopping' },
+      { date: '2026-10-02', store: 'Arcteryx', amount: -7.66, category: 'Shopping' },
+    ])));
+    const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(result).toMatchObject({ statementTotalCents: null, itemsTotalCents: 1234, reconciled: false });
+  });
+
+  it('accepts a summary figure equal to the only row', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => statementResponse([{ label: 'Purchases', amount: 12.34, page: 1, kind: 'summary' }])));
+    const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(result).toMatchObject({ statementTotalCents: 1234, reconciled: true });
+  });
+
+  it('accepts any printed label the model chooses, including balances and payments', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => statementResponse([
+      { label: 'NEW BALANCE', amount: 12.34, page: 1, kind: 'summary' },
+    ])));
+    const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(result).toMatchObject({ statementTotalCents: 1234, reconciled: true });
+  });
+
+  it('makes one call and returns no rows for a PDF with no transactions', async () => {
+    const fetchMock = vi.fn(async () => statementResponse(null, []));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(result).toMatchObject({ transactions: [], reconciled: false });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps first-pass rows when the repair pass times out', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(statementResponse([{ label: 'Purchases', amount: 99.99, page: 1 }]))
+      .mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const scan = parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    const settled = scan.then((value) => ({ value }), (error: unknown) => ({ error }));
+    await vi.runAllTimersAsync();
+
+    expect(await settled).toEqual({ value: expect.objectContaining({
+      transactions: [{ date: '2026-08-01', store: 'Coffee Shop', amountCents: 1234, category: 'Dining' }],
+      reconciled: false,
+    }) });
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('keeps first-pass rows when the repair response cannot be parsed', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(statementResponse([{ label: 'Purchases', amount: 99.99, page: 1 }]))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: 'not json' }] } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
 
     const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
 
-    expect(result).toMatchObject({ statementTotalCents: null, itemsTotalCents: 2468, reconciled: false });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ itemsTotalCents: 1234, reconciled: false });
+    expect(result.transactions).toHaveLength(1);
   });
 
-  it.each(['Total of New Transactions for Cardholder', 'Total of Other Account Transactions'])(
-    'rejects mixed account purchases and %s section total', async (sectionLabel) => {
-      vi.stubGlobal('fetch', vi.fn(async () => statementResponse([
-        { label: 'Purchases & Other Charges', amount: 12.34, page: 1 },
-        { label: sectionLabel, amount: 12.34, page: 2 },
-      ], [
-        { date: '2026-08-01', store: 'Coffee Shop', amount: 12.34, category: 'Dining' },
-        { date: '2026-08-01', store: 'Coffee Shop', amount: 12.34, category: 'Dining' },
-      ])));
+  it('runs the repair pass when the first response cannot be parsed', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: '{"transactions": [' }] } }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(statementResponse([{ label: 'Purchases', amount: 12.34, page: 1 }]));
+    vi.stubGlobal('fetch', fetchMock);
 
-      const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    const result = await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
 
-      expect(result).toMatchObject({ statementTotalCents: null, itemsTotalCents: 2468, reconciled: false });
-    },
-  );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ statementTotalCents: 1234, reconciled: true });
+  });
+
+  it('asks for early-dated rows, null unreadable fields and no double-counted refunds', async () => {
+    let prompt = '';
+    vi.stubGlobal('fetch', vi.fn(async (_i: string | URL | Request, init?: RequestInit) => {
+      prompt = JSON.parse(String(init?.body)).contents[0].parts[0].text;
+      return statementResponse([{ label: 'Purchases', amount: 12.34, page: 1 }]);
+    }));
+    await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(prompt).toContain("including rows whose transaction date precedes the statement period's opening date");
+    expect(prompt).toContain('Use null for any unreadable date, store or amount; never guess them.');
+    expect(prompt).toContain('Before adding a separate credits figure, check whether the purchases total already nets refunds; never count a refund twice.');
+  });
+
+  it('sends a statement schema without a forced row and with kind and explanation', async () => {
+    let schema: any = {};
+    vi.stubGlobal('fetch', vi.fn(async (_i: string | URL | Request, init?: RequestInit) => {
+      schema = JSON.parse(String(init?.body)).generationConfig.responseJsonSchema;
+      return statementResponse([{ label: 'Purchases', amount: 12.34, page: 1, kind: 'summary' }]);
+    }));
+    await parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0));
+    expect(schema.properties.transactions.minItems).toBeUndefined();
+    expect(schema.required).toEqual(['transactions', 'reconciliationExplanation', 'reconciliationComponents']);
+    expect(Object.keys(schema.properties)).toEqual(['transactions', 'reconciliationExplanation', 'reconciliationComponents']);
+    expect(schema.properties.reconciliationComponents.items.properties.kind.enum).toEqual(['summary', 'transaction']);
+  });
 
   it('accepts account purchases with a separate printed fee', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => statementResponse([
@@ -365,7 +461,7 @@ describe('parseReceipt', () => {
     expect(result).toMatchObject({ statementTotalCents: 1234, itemsTotalCents: 1234, reconciled: true });
   });
 
-  it('uses Gemini 3.8 Flash with low thinking for receipts', async () => {
+  it('uses Gemini 4 Hydrogen with low thinking for receipts', async () => {
     let requestedUrl = '';
     let requestBody: { generationConfig?: { thinkingConfig?: { thinkingLevel?: string }; temperature?: number } } = {};
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -379,7 +475,7 @@ describe('parseReceipt', () => {
 
     await parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0));
 
-    expect(requestedUrl).toContain('/models/gemini-3.8-flash:generateContent');
+    expect(requestedUrl).toContain('/models/gemini-4-hydrogen:generateContent');
     expect(requestBody.generationConfig?.thinkingConfig?.thinkingLevel).toBe('LOW');
     expect(requestBody.generationConfig?.temperature).toBeUndefined();
   });
@@ -481,7 +577,7 @@ describe('parseReceipt', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const assertion = expect(parseReceipt('test-key', 'application/pdf', new ArrayBuffer(0)))
-      .rejects.toThrow(GeminiUpstreamError);
+      .resolves.toMatchObject({ itemsTotalCents: 1234, reconciled: false });
     await vi.runAllTimersAsync();
     await assertion;
 
@@ -503,8 +599,8 @@ describe('parseReceipt', () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
-  // Every scan stays on Gemini 3.8 Flash: Flash Lite misread more statements in testing (#74).
-  it('sends every retry to Gemini 3.8 Flash and never to a smaller model', async () => {
+  // Every scan and retry stays on gemini-4-hydrogen; never fall back to a smaller model (#74).
+  it('sends every retry to Gemini 4 Hydrogen and never to a smaller model', async () => {
     vi.useFakeTimers();
     const models: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -517,7 +613,7 @@ describe('parseReceipt', () => {
     await vi.runAllTimersAsync();
     await assertion;
 
-    expect(models).toEqual(Array(5).fill('gemini-3.8-flash'));
+    expect(models).toEqual(Array(5).fill('gemini-4-hydrogen'));
   });
 
   it('classifies a persistent 500 as a generic upstream error after retries are used up', async () => {

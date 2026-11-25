@@ -1226,13 +1226,126 @@
       "layout": "D",
       "sha256": "ad9f41d1976fbb0a489d5007d2e0c43cbaddf5c7eb01e8efee3135fb6c8828f9",
       "featured": true,
-      "description": "Prints no purchase total, so there is nothing independent to check the rows against. Divvy refuses it rather than guess.",
-      "status": 422,
+      "description": "Prints no figure that isolates the purchases, so Divvy imports the rows as unverified for you to check.",
+      "status": 200,
       "body": {
-        "error": "Could not verify the statement total. No rows were imported.",
-        "reason": "reconciliation_failed",
+        "date": "2025-12-19",
+        "store": "LANTERNFIG NOODLE BAR",
+        "amountCents": 2485,
+        "category": "Dining",
+        "transactions": [
+          {
+            "date": "2025-12-19",
+            "store": "LANTERNFIG NOODLE BAR",
+            "amountCents": 2485,
+            "category": "Dining"
+          },
+          {
+            "date": "2025-12-23",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 7394,
+            "category": "Groceries"
+          },
+          {
+            "date": "2025-12-23",
+            "store": "MARIGOLD THREADS",
+            "amountCents": 8900,
+            "category": "Shopping"
+          },
+          {
+            "date": "2025-12-24",
+            "store": "QUILLFERN MARKET #0042",
+            "amountCents": 4261,
+            "category": "Groceries"
+          },
+          {
+            "date": "2025-12-25",
+            "store": "MARIGOLD THREADS",
+            "amountCents": -8900,
+            "category": "Shopping"
+          },
+          {
+            "date": "2025-12-30",
+            "store": "PARKWISP METER",
+            "amountCents": 925,
+            "category": "Transport"
+          },
+          {
+            "date": "2025-12-31",
+            "store": "STARGLADE CINEMA",
+            "amountCents": 1942,
+            "category": "Entertainment"
+          },
+          {
+            "date": "2026-01-03",
+            "store": "GLIMMERSTONE PHARMACY",
+            "amountCents": 1253,
+            "category": "Health"
+          },
+          {
+            "date": "2026-01-04",
+            "store": "QUILLFERN MARKET #0042",
+            "amountCents": 3976,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-01-06",
+            "store": "LANTERNFIG NOODLE BAR",
+            "amountCents": 3489,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-01-10",
+            "store": "MOSSRIDGE FRESH FOODS",
+            "amountCents": 649,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-01-14",
+            "store": "TINDERLEAF ASIAN MART",
+            "amountCents": 1257,
+            "category": "Groceries"
+          },
+          {
+            "date": "2025-12-20",
+            "store": "MOSSRIDGE FRESH FOODS",
+            "amountCents": 2362,
+            "category": "Groceries"
+          },
+          {
+            "date": "2025-12-23",
+            "store": "TINDERLEAF ASIAN MART",
+            "amountCents": 571,
+            "category": "Groceries"
+          },
+          {
+            "date": "2025-12-24",
+            "store": "GLIMMERSTONE PHARMACY",
+            "amountCents": 2240,
+            "category": "Health"
+          },
+          {
+            "date": "2026-01-08",
+            "store": "MOSSRIDGE FRESH FOODS",
+            "amountCents": 680,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-01-12",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 4050,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-01-14",
+            "store": "ZEPHYRINE BOOKS",
+            "amountCents": 5586,
+            "category": "Shopping"
+          }
+        ],
+        "statementTotalCents": null,
         "itemsTotalCents": 43120,
-        "statementTotalCents": null
+        "reconciled": false
       }
     },
     {
@@ -1242,12 +1355,131 @@
       "sha256": "79bf06c81507af53bd45738ad48eef150e84a796d206d104cb221c265eb37b2a",
       "featured": false,
       "description": "Layout D sample.",
-      "status": 422,
+      "status": 200,
       "body": {
-        "error": "Could not verify the statement total. No rows were imported.",
-        "reason": "reconciliation_failed",
+        "date": "2026-01-18",
+        "store": "OTTERBLOOM BAKERY",
+        "amountCents": 896,
+        "category": "Dining",
+        "transactions": [
+          {
+            "date": "2026-01-18",
+            "store": "OTTERBLOOM BAKERY",
+            "amountCents": 896,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-01-19",
+            "store": "TINDERLEAF ASIAN MART",
+            "amountCents": 3537,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-01-25",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 5184,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-01-27",
+            "store": "OTTERBLOOM BAKERY",
+            "amountCents": 634,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-01-30",
+            "store": "ZEPHYRINE BOOKS",
+            "amountCents": 4970,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-01-31",
+            "store": "QUILLFERN MARKET #0042",
+            "amountCents": 8849,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-02-04",
+            "store": "KESTRELBAY TRANSIT",
+            "amountCents": 423,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-02-05",
+            "store": "VELLUMTIDE ELECTRONICS",
+            "amountCents": 60000,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-02-06",
+            "store": "VELLUMTIDE ELECTRONICS",
+            "amountCents": -60000,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-02-06",
+            "store": "VELLUMTIDE ELECTRONICS 1ST OF 6 INSTALMENTS",
+            "amountCents": 10000,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-02-09",
+            "store": "KESTRELBAY TRANSIT",
+            "amountCents": 1880,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-02-10",
+            "store": "BRINDLEWOOD CAFE",
+            "amountCents": 739,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-01-16",
+            "store": "SAFFRONQUILL KITCHEN",
+            "amountCents": 5003,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-01-16",
+            "store": "KESTRELBAY TRANSIT",
+            "amountCents": 610,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-01-17",
+            "store": "STARGLADE CINEMA",
+            "amountCents": 2954,
+            "category": "Entertainment"
+          },
+          {
+            "date": "2026-01-22",
+            "store": "GLIMMERSTONE PHARMACY",
+            "amountCents": 637,
+            "category": "Health"
+          },
+          {
+            "date": "2026-01-29",
+            "store": "GLIMMERSTONE PHARMACY",
+            "amountCents": 2431,
+            "category": "Health"
+          },
+          {
+            "date": "2026-02-02",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 1773,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-02-03",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 1424,
+            "category": "Groceries"
+          }
+        ],
+        "statementTotalCents": null,
         "itemsTotalCents": 51944,
-        "statementTotalCents": null
+        "reconciled": false
       }
     },
     {
@@ -1257,12 +1489,119 @@
       "sha256": "cadaa241f9ff908dca8847d7d5cc1e018f348c312a868784f9917aea0d84757f",
       "featured": false,
       "description": "Layout E sample.",
-      "status": 422,
+      "status": 200,
       "body": {
-        "error": "Could not verify the statement total. No rows were imported.",
-        "reason": "reconciliation_failed",
+        "date": "2026-03-02",
+        "store": "STARGLADE CINEMA",
+        "amountCents": 3808,
+        "category": "Entertainment",
+        "transactions": [
+          {
+            "date": "2026-03-02",
+            "store": "STARGLADE CINEMA",
+            "amountCents": 3808,
+            "category": "Entertainment"
+          },
+          {
+            "date": "2026-03-03",
+            "store": "OTTERBLOOM BAKERY",
+            "amountCents": 1548,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-03-04",
+            "store": "PARKWISP METER",
+            "amountCents": 1440,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-03-05",
+            "store": "QUILLFERN MARKET #0042",
+            "amountCents": 9248,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-03-05",
+            "store": "MARIGOLD THREADS",
+            "amountCents": 10157,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-03-07",
+            "store": "MOSSRIDGE FRESH FOODS",
+            "amountCents": 1910,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-03-08",
+            "store": "OTTERBLOOM BAKERY",
+            "amountCents": 913,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-03-09",
+            "store": "LANTERNFIG NOODLE BAR",
+            "amountCents": 4234,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-03-10",
+            "store": "ZEPHYRINE BOOKS",
+            "amountCents": -2499,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-03-11",
+            "store": "SAFFRONQUILL KITCHEN",
+            "amountCents": 3849,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-03-14",
+            "store": "KESTRELBAY TRANSIT",
+            "amountCents": 2706,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-03-21",
+            "store": "ZEPHYRINE BOOKS",
+            "amountCents": 1891,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-03-26",
+            "store": "MARIGOLD THREADS",
+            "amountCents": 11321,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-03-26",
+            "store": "SAFFRONQUILL KITCHEN",
+            "amountCents": 6542,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-03-26",
+            "store": "MOSSRIDGE FRESH FOODS",
+            "amountCents": 3996,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-03-28",
+            "store": "LANTERNFIG NOODLE BAR",
+            "amountCents": 2720,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-03-31",
+            "store": "STARGLADE CINEMA",
+            "amountCents": 3117,
+            "category": "Entertainment"
+          }
+        ],
+        "statementTotalCents": null,
         "itemsTotalCents": 66901,
-        "statementTotalCents": null
+        "reconciled": false
       }
     },
     {
@@ -1272,12 +1611,137 @@
       "sha256": "cd1d2bda7495d478839e39be2500970fccdf00fb9293c72bf9697421b6970523",
       "featured": false,
       "description": "Layout E sample.",
-      "status": 422,
+      "status": 200,
       "body": {
-        "error": "Could not verify the statement total. No rows were imported.",
-        "reason": "reconciliation_failed",
+        "date": "2026-04-01",
+        "store": "MOSSRIDGE FRESH FOODS",
+        "amountCents": 2360,
+        "category": "Groceries",
+        "transactions": [
+          {
+            "date": "2026-04-01",
+            "store": "MOSSRIDGE FRESH FOODS",
+            "amountCents": 2360,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-04-06",
+            "store": "PARKWISP METER",
+            "amountCents": 450,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-04-06",
+            "store": "PARKWISP METER",
+            "amountCents": 450,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-04-07",
+            "store": "BRINDLEWOOD CAFE",
+            "amountCents": 869,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-04-08",
+            "store": "MOSSRIDGE FRESH FOODS",
+            "amountCents": 417,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-04-08",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 1287,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-04-10",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 7155,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-04-13",
+            "store": "COPPERFINCH HOME GOODS",
+            "amountCents": 18854,
+            "category": "Shopping"
+          },
+          {
+            "date": "2026-04-15",
+            "store": "GLIMMERSTONE PHARMACY",
+            "amountCents": 5109,
+            "category": "Health"
+          },
+          {
+            "date": "2026-04-17",
+            "store": "OTTERBLOOM BAKERY",
+            "amountCents": 2244,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-04-18",
+            "store": "SAFFRONQUILL KITCHEN",
+            "amountCents": 3418,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-04-19",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 5893,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-04-20",
+            "store": "SAFFRONQUILL KITCHEN",
+            "amountCents": 5218,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-04-20",
+            "store": "GLIMMERSTONE PHARMACY",
+            "amountCents": -1275,
+            "category": "Health"
+          },
+          {
+            "date": "2026-04-24",
+            "store": "PARKWISP METER",
+            "amountCents": 350,
+            "category": "Transport"
+          },
+          {
+            "date": "2026-04-25",
+            "store": "BRAMBLEWICK GROCER",
+            "amountCents": 5315,
+            "category": "Groceries"
+          },
+          {
+            "date": "2026-04-26",
+            "store": "OTTERBLOOM BAKERY",
+            "amountCents": 1414,
+            "category": "Dining"
+          },
+          {
+            "date": "2026-04-26",
+            "store": "STARGLADE CINEMA",
+            "amountCents": 1401,
+            "category": "Entertainment"
+          },
+          {
+            "date": "2026-04-29",
+            "store": "STARGLADE CINEMA",
+            "amountCents": 3230,
+            "category": "Entertainment"
+          },
+          {
+            "date": "2026-04-30",
+            "store": "STARGLADE CINEMA",
+            "amountCents": 3752,
+            "category": "Entertainment"
+          }
+        ],
+        "statementTotalCents": null,
         "itemsTotalCents": 67911,
-        "statementTotalCents": null
+        "reconciled": false
       }
     },
     {

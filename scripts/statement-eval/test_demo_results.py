@@ -16,8 +16,8 @@ FEATURED = {
     "sample-c1": "A different layout: rows grouped by type, foreign-currency purchases and separate foreign "
                  "transaction fees.",
     "sample-f1": "Rows grouped by spending category, with points on every row.",
-    "sample-d1": "Prints no purchase total, so there is nothing independent to check the rows against. "
-                 "Divvy refuses it rather than guess.",
+    "sample-d1": "Prints no figure that isolates the purchases, so Divvy imports the rows as unverified "
+                 "for you to check.",
 }
 
 
@@ -40,12 +40,13 @@ class DemoResultsTests(unittest.TestCase):
         featured = {s["id"]: s["description"] for s in self.samples if s["featured"]}
         self.assertEqual(featured, FEATURED)
 
-    def test_no_total_cases_refused(self):
+    def test_no_total_cases_imported_unverified(self):
         for s in self.samples:
-            self.assertEqual(s["status"], 422 if s["id"] in NO_TOTAL else 200, s["id"])
-            if s["status"] == 422:
-                self.assertEqual(s["body"]["reason"], "reconciliation_failed")
-                self.assertIsNone(s["body"]["statementTotalCents"])
+            self.assertEqual(s["status"], 200, s["id"])
+            if s["id"] in NO_TOTAL:
+                self.assertIs(s["body"]["reconciled"], False, s["id"])
+                self.assertIsNone(s["body"]["statementTotalCents"], s["id"])
+                self.assertGreater(len(s["body"]["transactions"]), 0, s["id"])
 
     def test_rows_match_manifest(self):
         for s in (s for s in self.samples if s["status"] == 200):
@@ -55,11 +56,12 @@ class DemoResultsTests(unittest.TestCase):
             want = Counter((t["date"], round(t["amount"] * 100)) for t in case["transactions"])
             self.assertEqual(got, want, s["id"])
             self.assertEqual(sum(r["amountCents"] for r in body["transactions"]), body["itemsTotalCents"])
-            self.assertEqual(body["itemsTotalCents"], body["statementTotalCents"], s["id"])
-            self.assertEqual(body["statementTotalCents"], case["expectedTotalCents"], s["id"])
-            self.assertIs(body["reconciled"], True)
+            if s["id"] not in NO_TOTAL:
+                self.assertEqual(body["itemsTotalCents"], body["statementTotalCents"], s["id"])
+                self.assertEqual(body["statementTotalCents"], case["expectedTotalCents"], s["id"])
+                self.assertIs(body["reconciled"], True, s["id"])
             first = body["transactions"][0]
-            self.assertEqual({k: body[k] for k in first}, first)
+            self.assertEqual({k: body[k] for k in first}, first, s["id"])
 
     def test_categories_are_app_categories(self):
         categories = set(demo.app_categories())

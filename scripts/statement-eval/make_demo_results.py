@@ -22,8 +22,8 @@ FEATURED = {
     "sample-c1": "A different layout: rows grouped by type, foreign-currency purchases and separate foreign "
                  "transaction fees.",
     "sample-f1": "Rows grouped by spending category, with points on every row.",
-    "sample-d1": "Prints no purchase total, so there is nothing independent to check the rows against. "
-                 "Divvy refuses it rather than guess.",
+    "sample-d1": "Prints no figure that isolates the purchases, so Divvy imports the rows as unverified "
+                 "for you to check.",
 }
 
 
@@ -57,12 +57,8 @@ def build(manifest_path):
         items_total = sum(r["amountCents"] for r in rows)
         expected = case["expectedTotalCents"]
         if expected is None:
-            status, body = 422, {
-                "error": "Could not verify the statement total. No rows were imported.",
-                "reason": "reconciliation_failed",
-                "itemsTotalCents": items_total,
-                "statementTotalCents": None,
-            }
+            status, body = 200, {**rows[0], "transactions": rows, "statementTotalCents": None,
+                                 "itemsTotalCents": items_total, "reconciled": False}
         else:
             if items_total != expected:
                 raise ValueError(f"{sid}: rows sum to {items_total}, expected {expected}")

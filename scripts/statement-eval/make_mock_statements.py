@@ -857,7 +857,7 @@ DEMO = {
     "sample-a1": "Reconciles purchases plus fees, not the negative closing balance after an overpayment",
     "sample-a3": "Same charge twice on one day: the import flags a potential duplicate",
     "sample-c1": "Transactions grouped by type, with foreign-currency rows and separate foreign transaction fees",
-    "sample-d1": "No printed purchase total: the app refuses the PDF and imports no rows, rather than guess a total",
+    "sample-d1": "No printed purchase total: the app imports the rows as unverified for review, rather than guess a total",
     "sample-f1": "Transactions grouped by spending category, with points per row",
 }
 

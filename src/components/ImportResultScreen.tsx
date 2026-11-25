@@ -4,7 +4,7 @@ import { CheckCircle2, AlertTriangle, XCircle, FileText, Image as ImageIcon } fr
 import { formatCentsWithSymbol } from '../lib/money';
 
 export type ImportSource = 'csv' | 'image' | 'mixed';
-export type ReconciliationStatus = 'matched' | 'not_applicable' | 'failed' | 'mixed';
+export type ReconciliationStatus = 'matched' | 'not_applicable' | 'failed' | 'unverified' | 'mixed';
 export type ImportOutcome = 'complete' | 'partial' | 'failed';
 
 export interface ImportSummaryRow {
@@ -46,6 +46,7 @@ export interface ImportSummary {
  * says, so a caller can never accidentally report success for an import that
  * didn't happen (failed reconciliation creates no queue rows; a bulk-call
  * failure after successful reconciliation is still a failed import overall).
+ * `'unverified'` rows are already queued, so it reports `'partial'`, never failed.
  */
 export function buildImportSummary(params: {
   fileName: string;
@@ -92,7 +93,7 @@ export function buildImportSummary(params: {
     itemsTotalCents: resolvedItemsTotalCents, statementTotalCents,
     reconciliationStatus,
     potentialDuplicates: duplicate, categoriesInferred, rowsNeedingAttention,
-    outcome: rejected > 0 ? 'partial' : 'complete',
+    outcome: rejected > 0 || reconciliationStatus === 'unverified' ? 'partial' : 'complete',
     insertedCount: inserted, rejectedCount: rejected,
     failureMessage: null,
   };
@@ -136,8 +137,8 @@ export function buildBatchImportSummary(summaries: ImportSummary[]): ImportSumma
   };
 }
 
-/** worker/routes/ai.ts returns this code on a 422 when a PDF's extracted items
- * do not reconcile against its printed statement total. */
+/** Older worker/routes/ai.ts returned this code on a 422 when a PDF's items did
+ * not reconcile; kept so a client meeting an older server mid-deploy still copes. */
 export const RECONCILIATION_FAILED = 'reconciliation_failed';
 
 export function isReconciliationFailure(reason: string | undefined): boolean {
@@ -165,6 +166,7 @@ const OUTCOME_STYLES: Record<ImportOutcome, { icon: React.ReactNode; label: stri
 const RECONCILIATION_LABEL: Record<ReconciliationStatus, string> = {
   matched: 'Matches printed statement total',
   failed: 'Did not match printed statement total',
+  unverified: 'Total not verified: check each row',
   not_applicable: 'No printed total to check',
   mixed: 'Checked separately for each file',
 };
@@ -201,7 +203,7 @@ function SummaryDetails({ summary }: { summary: ImportSummary }) {
         {summary.statementTotalCents !== null && (
           <Field label="Printed statement total" value={formatCentsWithSymbol(summary.statementTotalCents)} />
         )}
-        <Field label="Reconciliation" value={RECONCILIATION_LABEL[summary.reconciliationStatus]} warn={summary.reconciliationStatus === 'failed'} />
+        <Field label="Reconciliation" value={RECONCILIATION_LABEL[summary.reconciliationStatus]} warn={summary.reconciliationStatus === 'failed' || summary.reconciliationStatus === 'unverified'} />
         <Field label="Potential duplicates" value={summary.potentialDuplicates} warn={summary.potentialDuplicates > 0} />
         <Field label="Categories inferred" value={`${summary.categoriesInferred} / ${summary.rowsFound}`} />
         <Field label="Rows requiring attention" value={summary.rowsNeedingAttention} warn={summary.rowsNeedingAttention > 0} />
