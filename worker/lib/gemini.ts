@@ -275,7 +275,7 @@ export class GeminiUnsupportedFileError extends Error {
 }
 
 export class GeminiUpstreamError extends Error {
-  constructor(public status: number) {
+  constructor(public status: number, public reason?: string) {
     super(`Gemini returned ${status}`);
     this.name = 'GeminiUpstreamError';
   }
@@ -339,17 +339,20 @@ async function fetchWithRetry(url: string, init: RequestInit, pass: ScanPass): P
   }
 }
 
-function classifyFailure(status: number): Error {
-  if (status === 429) return new GeminiQuotaError();
-  if (status === 400) return new GeminiUnsupportedFileError();
-  return new GeminiUpstreamError(status);
+async function classifyFailure(res: Response): Promise<Error> {
+  if (res.status === 429) return new GeminiQuotaError();
+  if (res.status !== 400) return new GeminiUpstreamError(res.status);
+  // A rejected API key is also a 400; it is a configuration fault, not an unreadable file.
+  const body = await res.json<{ error?: { details?: Array<{ reason?: string }> } }>().catch(() => null);
+  const reason = body?.error?.details?.find((detail) => detail.reason)?.reason;
+  return reason === 'API_KEY_INVALID' ? new GeminiUpstreamError(400, reason) : new GeminiUnsupportedFileError();
 }
 
 function classifyForLog(err: unknown): string {
   if (err instanceof GeminiTimeoutError) return 'timeout';
   if (err instanceof GeminiQuotaError) return 'quota_exhausted';
   if (err instanceof GeminiUnsupportedFileError) return 'unsupported_file';
-  if (err instanceof GeminiUpstreamError) return `upstream_error_${err.status}`;
+  if (err instanceof GeminiUpstreamError) return `upstream_error_${err.status}${err.reason ? `_${err.reason}` : ''}`;
   return 'error';
 }
 
@@ -392,7 +395,7 @@ async function runParse(
     };
 
     const res = await fetchWithRetry(url, init, pass);
-    if (!res.ok) throw classifyFailure(res.status);
+    if (!res.ok) throw await classifyFailure(res);
 
     const body = await res.json<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>();
     const text = body.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';

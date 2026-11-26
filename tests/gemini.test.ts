@@ -11,6 +11,30 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** The body Gemini returned for a rejected key on 2026-11-26 (issue #114). */
+function invalidKeyResponse(): Response {
+  return new Response(JSON.stringify({
+    error: {
+      code: 400,
+      message: 'API key not valid. Please pass a valid API key.',
+      status: 'INVALID_ARGUMENT',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'API_KEY_INVALID',
+          domain: 'googleapis.com',
+          metadata: { service: 'generativelanguage.googleapis.com' },
+        },
+        {
+          '@type': 'type.googleapis.com/google.rpc.LocalizedMessage',
+          locale: 'en-US',
+          message: 'API key not valid. Please pass a valid API key.',
+        },
+      ],
+    },
+  }), { status: 400, headers: { 'content-type': 'application/json' } });
+}
+
 describe('validateDraft', () => {
   it('accepts a well formed response', () => {
     expect(validateDraft({ date: '2024-06-09', store: 'Uber', amount: 5.86, category: 'Transport' }))
@@ -506,6 +530,26 @@ describe('parseReceipt', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('reports an invalid API key as an upstream error, not an unreadable file', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(invalidKeyResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const scan = parseReceipt('bad-key', 'image/jpeg', new ArrayBuffer(0));
+
+    await expect(scan).rejects.toThrow(GeminiUpstreamError);
+    await expect(scan).rejects.toMatchObject({ status: 400, reason: 'API_KEY_INVALID' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('still reports a 400 with another error body as an unreadable file', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({
+      error: { code: 400, message: 'The file could not be processed.', status: 'INVALID_ARGUMENT' },
+    }), { status: 400, headers: { 'content-type': 'application/json' } })));
+
+    await expect(parseReceipt('test-key', 'image/jpeg', new ArrayBuffer(0)))
+      .rejects.toThrow(GeminiUnsupportedFileError);
+  });
+
   it('survives a Gemini overload that lasts four attempts', async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn()
@@ -691,5 +735,16 @@ describe('parseReceipt', () => {
     expect(payload).toMatchObject({ status: 'unsupported_file', rowCount: 0, reconciled: false });
 
     logSpy.mockRestore();
+  });
+
+  it('names the invalid API key reason in the scan log', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => invalidKeyResponse()));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await expect(parseReceipt('bad-key', 'image/jpeg', new ArrayBuffer(0))).rejects.toThrow();
+
+    const line = logSpy.mock.calls[0][0] as string;
+    expect(JSON.parse(line)).toMatchObject({ status: 'upstream_error_400_API_KEY_INVALID' });
+    expect(line).not.toContain('bad-key');
   });
 });
